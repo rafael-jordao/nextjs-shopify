@@ -26,6 +26,28 @@ export interface ShopifyProductVariant {
   price: ShopifyMoney;
 }
 
+export interface ShopifyCustomerAddress {
+  id: string;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  provinceCode: string | null;
+  zip: string | null;
+  countryCodeV2: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+  phone: string | null;
+}
+
+export interface ShopifyProductVariant {
+  id: string;
+  title: string;
+  availableForSale: boolean;
+  selectedOptions: ShopifySelectedOption[];
+  price: ShopifyMoney;
+}
+
 export interface ShopifyProduct {
   id: string;
   title: string;
@@ -107,4 +129,98 @@ export interface CartContextType {
   getTotalItems: () => number;
   getTotalPrice: () => string;
   clearCart: () => void;
+}
+
+// Customer/User types for authentication
+export interface ShopifyCustomer {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  acceptsMarketing: boolean;
+  addresses: {
+    nodes: ShopifyCustomerAddress[];
+  };
+}
+
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  acceptsMarketing: boolean;
+  addresses: Address[];
+  orders: Order[];
+}
+
+export interface Address {
+  id: string;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  province: string | null;
+  zip: string | null;
+  country: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+  phone: string | null;
+}
+
+export interface Order {
+  id: string;
+  orderNumber: string;
+  totalPrice: ShopifyMoney;
+  createdAt: string;
+  fulfillmentStatus: string | null;
+  financialStatus: string | null;
+  lineItems: OrderLineItem[];
+}
+
+export interface OrderLineItem {
+  id: string;
+  title: string;
+  quantity: number;
+  price: ShopifyMoney;
+  variant: {
+    id: string;
+    title: string;
+    image?: ShopifyImage;
+  };
+}
+
+// Auth interfaces
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  acceptsMarketing: boolean;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+export interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (userData: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+  updateUser: (userData: Partial<User>) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }

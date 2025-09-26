@@ -2,13 +2,19 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useCart } from '../contexts/CartContext';
+
+import AuthModal from './AuthModal';
 import Image from 'next/image';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 
 export default function Header() {
   const { getTotalItems, cartItems, cart, removeFromCart, updateCartItem } =
     useCart();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const handleRemoveItem = async (lineId: string) => {
     await removeFromCart(lineId);
@@ -49,8 +55,68 @@ export default function Header() {
             </Link>
           </nav>
 
-          {/* Cart */}
-          <div className="flex items-center">
+          {/* User Menu & Cart */}
+          <div className="flex items-center space-x-4">
+            {/* User Menu */}
+            {isAuthenticated ? (
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-gray-600">
+                      {user?.firstName?.[0]}
+                      {user?.lastName?.[0]}
+                    </span>
+                  </div>
+                </button>
+
+                {/* User Dropdown Menu */}
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
+                    <div className="px-4 py-2 border-b">
+                      <p className="text-sm font-medium text-gray-900">
+                        {user?.firstName} {user?.lastName}
+                      </p>
+                      <p className="text-xs text-gray-500">{user?.email}</p>
+                    </div>
+                    <Link
+                      href="/account"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      My Account
+                    </Link>
+                    <Link
+                      href="/account/orders"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      Order History
+                    </Link>
+                    <button
+                      onClick={async () => {
+                        await logout();
+                        setUserMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="text-gray-500 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+              >
+                Sign In
+              </button>
+            )}
+
+            {/* Cart */}
             <button
               onClick={() => setIsCartOpen(!isCartOpen)}
               className="relative p-2 text-gray-400 hover:text-gray-500 transition-colors"
@@ -230,6 +296,12 @@ export default function Header() {
           </div>
         </>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </header>
   );
 }

@@ -10,10 +10,22 @@ interface ProductPageProps {
   }>;
 }
 
+// Enable ISR with 1 minute revalidation for product pages
+export const revalidate = 60;
+
+// Generate static params for popular products
+export async function generateStaticParams() {
+  const products = await getProducts(20); // Get top 20 products
+
+  return products.map((product) => ({
+    handle: product.handle,
+  }));
+}
+
 // Generate metadata for SEO
 export async function generateMetadata({ params }: ProductPageProps) {
   const { handle } = await params;
-  const product = await getProduct(handle);
+  const product = await getProduct(handle, 60); // Revalidate every minute
 
   if (!product) {
     return {
@@ -37,22 +49,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
   };
 }
 
-// Generate static params for better performance (optional)
-export async function generateStaticParams() {
-  try {
-    const products = await getProducts(50); // Get first 50 products
-    return products.map((product) => ({
-      handle: product.handle,
-    }));
-  } catch (error) {
-    console.error('Error generating static params:', error);
-    return [];
-  }
-}
-
 export default async function ProductPage({ params }: ProductPageProps) {
   const { handle } = await params;
-  const product = await getProduct(handle);
+  const product = await getProduct(handle, 60); // Revalidate every minute
 
   if (!product) {
     notFound();

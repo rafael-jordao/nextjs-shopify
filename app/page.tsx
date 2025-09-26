@@ -3,8 +3,11 @@ import Header from '../components/Header';
 
 import { getProducts } from '../lib/shopify/products';
 
+// Enable ISR with 5 minutes revalidation
+export const revalidate = 300;
+
 export default async function Home() {
-  const products = await getProducts(12);
+  const products = await getProducts(12, 60); // Revalidate every 5 minutes
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -12,14 +12,47 @@ export const shopifyClient = new GraphQLClient(endpoint, {
   },
 });
 
-// Generic Shopify GraphQL fetch function
+// Generic Shopify GraphQL fetch function with cache configuration
 export async function shopifyFetch<T = any>(
   query: string,
-  variables?: Record<string, any>
+  variables?: Record<string, any>,
+  options?: {
+    cache?: RequestCache;
+    next?: { revalidate?: number | false; tags?: string[] };
+  }
 ): Promise<T> {
   try {
-    const data = await shopifyClient.request<T>(query, variables);
-    return data;
+    // For server-side requests, use Next.js fetch with cache control
+    if (typeof window === 'undefined') {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'X-Shopify-Storefront-Access-Token':
+            process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN!,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query, variables }),
+        cache: options?.cache || 'force-cache',
+        next: options?.next || { revalidate: 60 }, // Revalidate every 60 seconds
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.errors) {
+        throw new Error(result.errors.map((e: any) => e.message).join(', '));
+      }
+
+      return result.data;
+    } else {
+      // For client-side requests, use the graphql-request client
+      const data = await shopifyClient.request<T>(query, variables);
+      return data;
+    }
   } catch (error) {
     console.error('Shopify GraphQL Error:', error);
     throw new Error(

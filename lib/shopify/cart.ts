@@ -91,8 +91,13 @@ export async function removeFromCart(cartId: string, lineIds: string[]) {
 
 // Get cart by ID
 export async function getCart(cartId: string) {
-  const data = await shopifyFetch<{ cart: ShopifyCart | null }>(GET_CART, {
-    cartId,
-  });
+  const data = await shopifyFetch<{ cart: ShopifyCart | null }>(
+    GET_CART,
+    { cartId },
+    {
+      cache: 'no-store', // Never cache cart data as it's user-specific
+      next: { revalidate: false },
+    }
+  );
   return data.cart;
 }
