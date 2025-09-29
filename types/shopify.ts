@@ -8,6 +8,55 @@ export interface ShopifyImage {
   height?: number;
 }
 
+export interface ShopifyVideo {
+  id: string;
+  sources: Array<{
+    url: string;
+    mimeType: string;
+  }>;
+}
+
+export interface ShopifyModel3d {
+  id: string;
+  sources: Array<{
+    url: string;
+    mimeType: string;
+  }>;
+}
+
+export interface ShopifyExternalVideo {
+  id: string;
+  host: 'YOUTUBE' | 'VIMEO';
+  originUrl: string;
+}
+
+export type ShopifyMediaType =
+  | 'IMAGE'
+  | 'VIDEO'
+  | 'MODEL_3D'
+  | 'EXTERNAL_VIDEO';
+
+export interface ShopifyMedia {
+  id: string;
+  mediaContentType: ShopifyMediaType;
+  // Para MediaImage
+  image?: ShopifyImage;
+  // Para Video
+  video?: ShopifyVideo;
+  // Para Model3d - os dados vêm diretamente no objeto, não em um sub-objeto
+  model3d?: ShopifyModel3d;
+  // Para ExternalVideo
+  externalVideo?: ShopifyExternalVideo;
+  // Campos diretos para Model3D e Video (estrutura real da API)
+  sources?: Array<{
+    url: string;
+    mimeType: string;
+  }>;
+  // Para ExternalVideo direto
+  host?: 'YOUTUBE' | 'VIMEO';
+  originUrl?: string;
+}
+
 export interface ShopifyMoney {
   amount: string;
   currencyCode: string;
@@ -59,6 +108,11 @@ export interface ShopifyProduct {
   images: {
     edges: Array<{
       node: ShopifyImage;
+    }>;
+  };
+  media: {
+    edges: Array<{
+      node: ShopifyMedia;
     }>;
   };
   variants: {

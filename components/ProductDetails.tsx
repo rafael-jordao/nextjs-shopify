@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { ShopifyProduct, ShopifyProductVariant } from '@/types/shopify';
 import { useCart } from '@/contexts/CartContext';
 import { formatMoney } from '@/lib/shopify';
+import MediaViewer from './MediaViewer';
 
 interface ProductDetailsProps {
   product: ShopifyProduct;
@@ -15,11 +16,23 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
   const [selectedVariant, setSelectedVariant] = useState<ShopifyProductVariant>(
     product.variants.edges[0]?.node
   );
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
+  // Get media from product (includes images, videos, 3D models)
+  const media = product.media?.edges?.map((edge) => edge.node) || [];
+  // Fallback to images if no media available
   const images = product.images.edges.map((edge) => edge.node);
   const variants = product.variants.edges.map((edge) => edge.node);
+
+  // Convert images to media format for compatibility
+  const mediaFromImages = images.map((image) => ({
+    id: image.id || image.url,
+    mediaContentType: 'IMAGE' as const,
+    image: image,
+  }));
+
+  // Use media if available, otherwise use converted images
+  const displayMedia = media.length > 0 ? media : mediaFromImages;
 
   const handleAddToCart = async () => {
     if (selectedVariant && selectedVariant.availableForSale) {
@@ -34,62 +47,9 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
-        {/* Product Images */}
-        <div className="space-y-4">
-          {/* Main Image */}
-          <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
-            {images[selectedImageIndex] ? (
-              <Image
-                src={images[selectedImageIndex].url}
-                alt={images[selectedImageIndex].altText || product.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                priority
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                <svg
-                  className="w-24 h-24"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-            )}
-          </div>
-
-          {/* Thumbnail Images */}
-          {images.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
-              {images.map((image, index) => (
-                <button
-                  key={image.id || index}
-                  onClick={() => setSelectedImageIndex(index)}
-                  className={`aspect-square relative bg-gray-100 rounded-md overflow-hidden border-2 ${
-                    selectedImageIndex === index
-                      ? 'border-black'
-                      : 'border-transparent'
-                  }`}
-                >
-                  <Image
-                    src={image.url}
-                    alt={image.altText || `${product.title} ${index + 1}`}
-                    fill
-                    className="object-cover"
-                    sizes="100px"
-                  />
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Product Media (Images, Videos, 3D Models) */}
+        <div>
+          <MediaViewer media={displayMedia} className="w-full" />
         </div>
 
         {/* Product Information */}

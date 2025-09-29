@@ -1,6 +1,6 @@
 import { shopifyFetch } from './client';
 import { GET_PRODUCTS, GET_PRODUCT } from './queries/products';
-import { ShopifyProduct } from '../../types/shopify';
+import { ShopifyProduct, ShopifyMedia } from '../../types/shopify';
 
 // Fetch all products with revalidation
 export async function getProducts(
