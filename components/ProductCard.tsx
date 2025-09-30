@@ -13,6 +13,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { toast } from 'sonner';
+import WishlistButton from './WishlistButton';
 
 interface ProductCardProps {
   product: ShopifyProduct;
@@ -34,12 +35,12 @@ export default function ProductCard({
     if (variant && variant.availableForSale) {
       try {
         await addToCart(variant.id);
-        toast.success(`${product.title} adicionado ao carrinho!`);
+        toast.success(`${product.title} added to cart!`);
       } catch (error) {
-        toast.error('Erro ao adicionar produto ao carrinho');
+        toast.error('Error adding product to cart');
       }
     } else {
-      toast.error('Produto indisponível');
+      toast.error('Product unavailable');
     }
   };
 
@@ -76,10 +77,15 @@ export default function ProductCard({
             </div>
           )}
 
+          {/* Wishlist Button */}
+          <div className="absolute top-2 left-2">
+            <WishlistButton product={product} size="sm" />
+          </div>
+
           {/* Badge para indicar se está esgotado */}
           {!variant?.availableForSale && (
             <Badge className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white">
-              Esgotado
+              Out of Stock
             </Badge>
           )}
         </div>
@@ -108,7 +114,7 @@ export default function ProductCard({
             size="sm"
             variant={variant?.availableForSale ? 'default' : 'secondary'}
           >
-            {variant?.availableForSale ? 'Adicionar' : 'Esgotado'}
+            {variant?.availableForSale ? 'Add to Cart' : 'Sold Out'}
           </Button>
         </div>
       </CardContent>

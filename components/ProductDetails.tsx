@@ -16,6 +16,7 @@ import {
 } from './ui/select';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
+import WishlistButton from './WishlistButton';
 
 interface ProductDetailsProps {
   product: ShopifyProduct;
@@ -48,9 +49,9 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     if (selectedVariant && selectedVariant.availableForSale) {
       try {
         await addToCart(selectedVariant.id, quantity);
-        toast.success(`${product.title} adicionado ao carrinho!`);
+        toast.success(`${product.title} added to cart!`);
       } catch (error) {
-        toast.error('Erro ao adicionar produto ao carrinho');
+        toast.error('Error adding product to cart');
       }
     }
   };
@@ -70,9 +71,12 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         {/* Product Information */}
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {product.title}
-            </h1>
+            <div className="flex items-start justify-between mb-4">
+              <h1 className="text-3xl font-bold text-gray-900 flex-1">
+                {product.title}
+              </h1>
+              <WishlistButton product={product} size="lg" />
+            </div>
             <p className="text-2xl font-semibold text-gray-900">
               {formatMoney(
                 selectedVariant?.price || product.priceRange.minVariantPrice
@@ -94,7 +98,9 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
           {/* Variants */}
           {variants.length > 1 && (
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Opções</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-3">
+                Options
+              </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {variants.map((variant) => (
                   <Button
@@ -109,7 +115,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                     <span className="text-sm font-medium">{variant.title}</span>
                     {!variant.availableForSale && (
                       <Badge variant="secondary" className="mt-1 text-xs">
-                        Indisponível
+                        Unavailable
                       </Badge>
                     )}
                   </Button>
@@ -124,7 +130,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               htmlFor="quantity"
               className="block text-lg font-medium text-gray-900 mb-2"
             >
-              Quantidade
+              Quantity
             </label>
             <Select
               value={quantity.toString()}
@@ -152,10 +158,10 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               size="lg"
             >
               {isLoading
-                ? 'Adicionando ao Carrinho...'
+                ? 'Adding to Cart...'
                 : selectedVariant?.availableForSale
-                ? 'Adicionar ao Carrinho'
-                : 'Indisponível'}
+                ? 'Add to Cart'
+                : 'Unavailable'}
             </Button>
 
             {/* Product Details */}
@@ -167,7 +173,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Disponibilidade</span>
+                <span className="text-gray-600">Availability</span>
                 <Badge
                   variant={
                     selectedVariant?.availableForSale ? 'default' : 'secondary'
@@ -179,8 +185,8 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                   }
                 >
                   {selectedVariant?.availableForSale
-                    ? 'Em Estoque'
-                    : 'Indisponível'}
+                    ? 'In Stock'
+                    : 'Unavailable'}
                 </Badge>
               </div>
             </div>

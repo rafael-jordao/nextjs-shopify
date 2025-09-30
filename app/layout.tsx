@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
+import { WishlistProvider } from '@/contexts/WishlistContext';
 import { Toaster } from '@/components/ui/sonner';
 import QueryProvider from '@/contexts/QueryProvider';
 
@@ -34,7 +35,9 @@ export default function RootLayout({
       >
         <QueryProvider>
           <AuthProvider>
-            <CartProvider>{children}</CartProvider>
+            <WishlistProvider>
+              <CartProvider>{children}</CartProvider>
+            </WishlistProvider>
           </AuthProvider>
           <Toaster />
         </QueryProvider>

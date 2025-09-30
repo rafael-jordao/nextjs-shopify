@@ -6,10 +6,13 @@ import { useState } from 'react';
 import AuthModal from './AuthModal';
 import Cart from './Cart';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { wishlistCount } = useWishlist();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -82,6 +85,13 @@ export default function Header() {
                     >
                       Order History
                     </Link>
+                    <Link
+                      href="/wishlist"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      My Wishlist
+                    </Link>
                     <Button
                       variant="ghost"
                       onClick={async () => {
@@ -104,6 +114,39 @@ export default function Header() {
                 Sign In
               </Button>
             )}
+
+            {/* Wishlist */}
+            <Link href="/wishlist">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-2 text-gray-400 hover:text-gray-500 transition-colors"
+              >
+                <span className="sr-only">Open wishlist</span>
+                {/* Heart Icon */}
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                {wishlistCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center text-xs p-0 rounded-full"
+                  >
+                    {wishlistCount}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
 
             {/* Cart */}
             <Cart>
@@ -147,6 +190,12 @@ export default function Header() {
             className="block px-3 py-2 text-base font-medium text-gray-500 hover:text-gray-900"
           >
             Products
+          </Link>
+          <Link
+            href="/wishlist"
+            className="block px-3 py-2 text-base font-medium text-gray-500 hover:text-gray-900"
+          >
+            Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
           </Link>
         </div>
       </div>
