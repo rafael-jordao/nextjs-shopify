@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShopifyCart, CartContextType } from '../types/shopify';
 import {
   createCart,
@@ -47,102 +48,184 @@ const initialState: CartState = {
   error: null,
 };
 
+// Query keys for TanStack Query
+const CART_QUERY_KEYS = {
+  cart: (cartId?: string) => ['cart', cartId] as const,
+} as const;
+
 // Create context
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 // Cart provider component
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, initialState);
+  const queryClient = useQueryClient();
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const loadCart = async () => {
-      const savedCartId = localStorage.getItem('shopify-cart-id');
-      if (savedCartId) {
-        dispatch({ type: 'SET_LOADING', payload: true });
-        const cartResponse = await getCart(savedCartId);
+  // Get cart ID from localStorage (client-side only)
+  const getCartId = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('shopify-cart-id');
+    }
+    return null;
+  };
 
-        if (cartResponse.success && cartResponse.data) {
-          dispatch({ type: 'SET_CART', payload: cartResponse.data });
-        } else {
-          // Cart not found, clear localStorage
+  // TanStack Query para carregar o carrinho
+  const { data: cartData, isLoading: queryLoading } = useQuery({
+    queryKey: CART_QUERY_KEYS.cart(getCartId() || undefined),
+    queryFn: async () => {
+      const cartId = getCartId();
+      if (!cartId) return null;
+
+      const response = await getCart(cartId);
+      if (!response.success) {
+        // Cart not found, clear localStorage
+        if (typeof window !== 'undefined') {
           localStorage.removeItem('shopify-cart-id');
-          if (cartResponse.message) {
-            dispatch({ type: 'SET_ERROR', payload: cartResponse.message });
-          }
         }
-
-        dispatch({ type: 'SET_LOADING', payload: false });
+        throw new Error(response.message);
       }
-    };
+      return response.data;
+    },
+    enabled: !!getCartId(),
+    staleTime: 0, // Carrinho sempre fresh
+    gcTime: 5 * 60 * 1000, // 5 minutos
+    retry: (failureCount, error: any) => {
+      // Não retry se carrinho não existe (404)
+      if (error?.message?.includes('not found')) return false;
+      return failureCount < 2;
+    },
+  });
 
-    loadCart();
-  }, []);
+  // Sync TanStack Query data with local state
+  useEffect(() => {
+    if (cartData) {
+      dispatch({ type: 'SET_CART', payload: cartData });
+    } else if (!queryLoading) {
+      dispatch({ type: 'CLEAR_CART' });
+    }
+    dispatch({ type: 'SET_LOADING', payload: queryLoading });
+  }, [cartData, queryLoading]);
+
+  // Mutations com TanStack Query
+  const createCartMutation = useMutation({
+    mutationFn: createCart,
+    onSuccess: (data) => {
+      if (data.success && data.data) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('shopify-cart-id', data.data.id);
+        }
+        queryClient.setQueryData(CART_QUERY_KEYS.cart(data.data.id), data.data);
+      }
+    },
+  });
+
+  const addToCartMutation = useMutation({
+    mutationFn: ({
+      cartId,
+      items,
+    }: {
+      cartId: string;
+      items: Array<{ merchandiseId: string; quantity: number }>;
+    }) => addToCart(cartId, items),
+    onSuccess: (data, variables) => {
+      if (data.success && data.data) {
+        queryClient.setQueryData(
+          CART_QUERY_KEYS.cart(variables.cartId),
+          data.data
+        );
+        queryClient.invalidateQueries({
+          queryKey: CART_QUERY_KEYS.cart(variables.cartId),
+        });
+      }
+    },
+  });
 
   // Add to cart function
   const handleAddToCart = async (variantId: string, quantity: number = 1) => {
-    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      let cartId = getCartId();
 
-    let cart = state.cart;
-
-    // Create cart if it doesn't exist
-    if (!cart) {
-      const createResponse = await createCart();
-
-      if (!createResponse.success || !createResponse.data) {
-        dispatch({ type: 'SET_ERROR', payload: createResponse.message });
-        return;
+      // Create cart if it doesn't exist
+      if (!cartId) {
+        const createResult = await createCartMutation.mutateAsync();
+        if (!createResult.success || !createResult.data) {
+          throw new Error(createResult.message);
+        }
+        cartId = createResult.data.id;
       }
 
-      cart = createResponse.data;
-      localStorage.setItem('shopify-cart-id', cart.id);
+      // Add item to cart
+      await addToCartMutation.mutateAsync({
+        cartId,
+        items: [{ merchandiseId: variantId, quantity }],
+      });
+    } catch (error: any) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
     }
-
-    // Add item to cart
-    const addResponse = await addToCart(cart.id, [
-      { merchandiseId: variantId, quantity },
-    ]);
-
-    if (!addResponse.success || !addResponse.data) {
-      dispatch({ type: 'SET_ERROR', payload: addResponse.message });
-      return;
-    }
-
-    dispatch({ type: 'SET_CART', payload: addResponse.data });
   };
+
+  const removeFromCartMutation = useMutation({
+    mutationFn: ({ cartId, lineIds }: { cartId: string; lineIds: string[] }) =>
+      removeFromCart(cartId, lineIds),
+    onSuccess: (data, variables) => {
+      if (data.success && data.data) {
+        queryClient.setQueryData(
+          CART_QUERY_KEYS.cart(variables.cartId),
+          data.data
+        );
+        queryClient.invalidateQueries({
+          queryKey: CART_QUERY_KEYS.cart(variables.cartId),
+        });
+      }
+    },
+  });
+
+  const updateCartMutation = useMutation({
+    mutationFn: ({
+      cartId,
+      lines,
+    }: {
+      cartId: string;
+      lines: Array<{ id: string; quantity: number }>;
+    }) => updateCartLine(cartId, lines),
+    onSuccess: (data, variables) => {
+      if (data.success && data.data) {
+        queryClient.setQueryData(
+          CART_QUERY_KEYS.cart(variables.cartId),
+          data.data
+        );
+        queryClient.invalidateQueries({
+          queryKey: CART_QUERY_KEYS.cart(variables.cartId),
+        });
+      }
+    },
+  });
 
   // Remove from cart function
   const handleRemoveFromCart = async (lineId: string) => {
-    if (!state.cart) return;
+    const cartId = getCartId();
+    if (!cartId) return;
 
-    dispatch({ type: 'SET_LOADING', payload: true });
-
-    const removeResponse = await removeFromCart(state.cart.id, [lineId]);
-
-    if (!removeResponse.success || !removeResponse.data) {
-      dispatch({ type: 'SET_ERROR', payload: removeResponse.message });
-      return;
+    try {
+      await removeFromCartMutation.mutateAsync({ cartId, lineIds: [lineId] });
+    } catch (error: any) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
     }
-
-    dispatch({ type: 'SET_CART', payload: removeResponse.data });
   };
 
   // Update cart item quantity
   const handleUpdateCartItem = async (lineId: string, quantity: number) => {
-    if (!state.cart) return;
+    const cartId = getCartId();
+    if (!cartId) return;
 
-    dispatch({ type: 'SET_LOADING', payload: true });
-
-    const updateResponse = await updateCartLine(state.cart.id, [
-      { id: lineId, quantity },
-    ]);
-
-    if (!updateResponse.success || !updateResponse.data) {
-      dispatch({ type: 'SET_ERROR', payload: updateResponse.message });
-      return;
+    try {
+      await updateCartMutation.mutateAsync({
+        cartId,
+        lines: [{ id: lineId, quantity }],
+      });
+    } catch (error: any) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
     }
-
-    dispatch({ type: 'SET_CART', payload: updateResponse.data });
   };
 
   // Get total items in cart
@@ -162,7 +245,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Clear cart
   const clearCart = () => {
-    localStorage.removeItem('shopify-cart-id');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('shopify-cart-id');
+    }
     dispatch({ type: 'CLEAR_CART' });
   };
 
@@ -180,10 +265,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       image: edge.node.merchandise.product.images.edges[0]?.node,
     })) || [];
 
+  // Combine loading states from TanStack Query mutations
+  const isLoading =
+    state.isLoading ||
+    createCartMutation.isPending ||
+    addToCartMutation.isPending ||
+    removeFromCartMutation.isPending ||
+    updateCartMutation.isPending;
+
   const value: CartContextType = {
     cart: state.cart,
     cartItems,
-    isLoading: state.isLoading,
+    isLoading,
     addToCart: handleAddToCart,
     removeFromCart: handleRemoveFromCart,
     updateCartItem: handleUpdateCartItem,

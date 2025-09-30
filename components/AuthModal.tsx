@@ -8,7 +8,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { toast } from 'sonner';
 
 // Login schema
 const loginSchema = z.object({
@@ -47,7 +46,7 @@ export default function AuthModal({
   defaultMode = 'login',
 }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'register'>(defaultMode);
-  const { login, register, isLoading, error } = useAuth();
+  const { login, register, isLoading } = useAuth();
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -58,32 +57,29 @@ export default function AuthModal({
   });
 
   const onLoginSubmit = async (data: LoginFormData) => {
-    try {
-      const response = await login(data.email, data.password);
-      console.log('Login response:', response);
-      toast.success('Login realizado com sucesso!');
+    const response = await login(data.email, data.password);
+
+    // Se o login foi bem-sucedido, fechar o modal
+    // Mensagens de erro/sucesso são gerenciadas pelo AuthContext
+    if (response.success) {
       onClose();
-    } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Erro ao fazer login. Verifique suas credenciais.');
     }
   };
 
   const onRegisterSubmit = async (data: RegisterFormData) => {
-    try {
-      await register({
-        email: data.email,
-        password: data.password,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        acceptsMarketing: data.acceptsMarketing || false,
-      });
-      toast.success('Conta criada com sucesso!');
+    const response = await register({
+      email: data.email,
+      password: data.password,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      acceptsMarketing: data.acceptsMarketing || false,
+    });
+
+    // Se o registro foi bem-sucedido, fechar o modal
+    // Mensagens de erro/sucesso são gerenciadas pelo AuthContext
+    if (response.success) {
       onClose();
-    } catch (error) {
-      console.error('Register error:', error);
-      toast.error('Erro ao criar conta. Tente novamente.');
     }
   };
 
@@ -97,12 +93,6 @@ export default function AuthModal({
         </DialogHeader>
 
         <div className="space-y-6">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
           {mode === 'login' ? (
             <form
               onSubmit={loginForm.handleSubmit(onLoginSubmit)}

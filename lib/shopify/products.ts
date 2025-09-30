@@ -5,7 +5,7 @@ import { ShopifyProduct, ShopifyResponse } from '../../types/shopify';
 // Fetch all products with revalidation
 export async function getProducts(
   first: number = 12,
-  revalidate: number = 300
+  revalidate: number = 60
 ): Promise<ShopifyResponse<ShopifyProduct[]>> {
   try {
     const data = await shopifyFetch<{
