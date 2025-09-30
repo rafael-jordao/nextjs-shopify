@@ -25,10 +25,10 @@ const registerSchema = z
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
     phone: z
       .string()
-      .optional()
+      .min(1, 'Phone number is required')
       .refine(
         (phone) => {
-          if (!phone || phone.trim() === '') return true; // Optional field
+          if (!phone || phone.trim() === '') return false; // Required field
           // Remove todos os caracteres não numéricos
           const cleanPhone = phone.replace(/\D/g, '');
           // Deve ter 11 dígitos (2 do DDD + 9 do número)
@@ -64,11 +64,7 @@ export default function AuthModal({
   const { login, register, isLoading } = useAuth();
 
   // Função para formatar telefone brasileiro
-  const formatPhoneForShopify = (
-    phone: string | undefined
-  ): string | undefined => {
-    if (!phone || phone.trim() === '') return undefined;
-
+  const formatPhoneForShopify = (phone: string): string => {
     // Remove todos os caracteres não numéricos
     const cleanPhone = phone.replace(/\D/g, '');
 
@@ -87,7 +83,8 @@ export default function AuthModal({
       return phone.replace(/\D/g, '').replace(/^55/, '+55');
     }
 
-    return undefined;
+    // Se não conseguiu formatar, retorna como recebido
+    return phone;
   };
 
   const loginForm = useForm<LoginFormData>({
@@ -323,7 +320,7 @@ export default function AuthModal({
                   htmlFor="phone"
                   className="block text-sm font-medium text-gray-700 mb-2"
                 >
-                  Telefone (Opcional)
+                  Phone Number *
                 </label>
                 <Input
                   type="tel"

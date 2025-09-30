@@ -15,7 +15,7 @@ interface CustomerCreateInput {
   password: string;
   firstName: string;
   lastName: string;
-  phone?: string;
+  phone: string;
   acceptsMarketing?: boolean;
 }
 

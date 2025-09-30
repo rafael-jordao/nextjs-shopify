@@ -162,7 +162,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Check token validity periodically (for same-tab manual removals)
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Separate effect for periodic token validation
+  useEffect(() => {
     const checkTokenValidity = () => {
       const token = safeLocalStorage.getItem('shopify-auth-token');
       if (state.user && !token) {
@@ -172,14 +180,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    const intervalId = setInterval(checkTokenValidity, 1000); // Check every second
+    const intervalId = setInterval(checkTokenValidity, 2000); // Check every 2 seconds
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       clearInterval(intervalId);
     };
-  }, [state.user]); // Login function
+  }, [state.user]);
+
+  // Login function
   const login = async (email: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
