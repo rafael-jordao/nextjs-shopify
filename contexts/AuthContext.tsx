@@ -137,11 +137,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             dispatch({ type: 'SET_USER', payload: userJson });
           }
         } else {
-          // Load from localStorage (for demo/registered users)
-          const demoUser = savedUser ? JSON.parse(savedUser) : null;
-          if (demoUser) {
-            dispatch({ type: 'SET_USER', payload: demoUser });
+          // No token means no authentication - clear any stored user data
+          if (savedUser) {
+            safeLocalStorage.removeItem('shopify-user');
           }
+          dispatch({ type: 'LOGOUT' });
         }
       } catch (error) {
         console.error('Error initializing user:', error);
@@ -152,7 +152,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeUser();
-  }, []); // Login function
+
+    // Listen for localStorage changes (like manual token removal between tabs)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'shopify-auth-token' && event.newValue === null) {
+        // Token was removed, logout user immediately
+        safeLocalStorage.removeItem('shopify-user');
+        dispatch({ type: 'LOGOUT' });
+      }
+    };
+
+    // Check token validity periodically (for same-tab manual removals)
+    const checkTokenValidity = () => {
+      const token = safeLocalStorage.getItem('shopify-auth-token');
+      if (state.user && !token) {
+        // User is logged in but no token exists - force logout
+        safeLocalStorage.removeItem('shopify-user');
+        dispatch({ type: 'LOGOUT' });
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    const intervalId = setInterval(checkTokenValidity, 1000); // Check every second
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(intervalId);
+    };
+  }, [state.user]); // Login function
   const login = async (email: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
