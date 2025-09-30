@@ -223,6 +223,7 @@ export interface Address {
   lastName: string | null;
   company: string | null;
   phone: string | null;
+  default?: boolean; // Indica se é o endereço principal
 }
 
 export interface Order {
@@ -281,6 +282,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+
   login: (
     email: string,
     password: string

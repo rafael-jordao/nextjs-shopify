@@ -9,6 +9,10 @@ import {
   CUSTOMER_RECOVER,
   CUSTOMER_ACTIVATE_BY_URL,
   CUSTOMER_RESET_BY_URL,
+  CUSTOMER_ADDRESS_CREATE,
+  CUSTOMER_ADDRESS_UPDATE,
+  CUSTOMER_ADDRESS_DELETE,
+  CUSTOMER_DEFAULT_ADDRESS_UPDATE,
 } from './queries/customer';
 import { ShopifyResponse } from '../../types/shopify';
 
@@ -33,6 +37,19 @@ interface CustomerUpdateInput {
   email?: string;
   phone?: string;
   acceptsMarketing?: boolean;
+}
+
+interface CustomerAddressInput {
+  firstName?: string;
+  lastName?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  province?: string;
+  country?: string;
+  zip?: string;
+  phone?: string;
+  company?: string;
 }
 
 // Create new customer account (without password - requires activation)
@@ -366,6 +383,149 @@ export async function resetCustomerByUrl(
     return {
       success: false,
       message: 'Error resetting password. Please try again.',
+    };
+  }
+}
+
+// Customer Address Management Functions
+
+// Create new customer address
+export async function createCustomerAddress(
+  customerAccessToken: string,
+  address: CustomerAddressInput
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerAddressCreate: {
+        customerAddress: any;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_ADDRESS_CREATE, { customerAccessToken, address });
+
+    if (data.customerAddressCreate.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerAddressCreate.customerUserErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Endereço criado com sucesso',
+      data: data.customerAddressCreate.customerAddress,
+    };
+  } catch (error) {
+    console.error('Error creating address:', error);
+    return {
+      success: false,
+      message: 'Erro ao criar endereço. Tente novamente.',
+    };
+  }
+}
+
+// Update existing customer address
+export async function updateCustomerAddress(
+  customerAccessToken: string,
+  id: string,
+  address: CustomerAddressInput
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerAddressUpdate: {
+        customerAddress: any;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_ADDRESS_UPDATE, { customerAccessToken, id, address });
+
+    if (data.customerAddressUpdate.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerAddressUpdate.customerUserErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Endereço atualizado com sucesso',
+      data: data.customerAddressUpdate.customerAddress,
+    };
+  } catch (error) {
+    console.error('Error updating address:', error);
+    return {
+      success: false,
+      message: 'Erro ao atualizar endereço. Tente novamente.',
+    };
+  }
+}
+
+// Delete customer address
+export async function deleteCustomerAddress(
+  customerAccessToken: string,
+  id: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerAddressDelete: {
+        deletedCustomerAddressId: string;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_ADDRESS_DELETE, { customerAccessToken, id });
+
+    if (data.customerAddressDelete.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerAddressDelete.customerUserErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Endereço excluído com sucesso',
+      data: data.customerAddressDelete.deletedCustomerAddressId,
+    };
+  } catch (error) {
+    console.error('Error deleting address:', error);
+    return {
+      success: false,
+      message: 'Erro ao excluir endereço. Tente novamente.',
+    };
+  }
+}
+
+// Set customer default address
+export async function setCustomerDefaultAddress(
+  customerAccessToken: string,
+  addressId: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerDefaultAddressUpdate: {
+        customer: {
+          id: string;
+          defaultAddress: { id: string };
+        };
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_DEFAULT_ADDRESS_UPDATE, { customerAccessToken, addressId });
+
+    if (data.customerDefaultAddressUpdate.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message:
+          data.customerDefaultAddressUpdate.customerUserErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Endereço principal definido com sucesso',
+      data: data.customerDefaultAddressUpdate.customer,
+    };
+  } catch (error) {
+    console.error('Error setting default address:', error);
+    return {
+      success: false,
+      message: 'Erro ao definir endereço principal. Tente novamente.',
     };
   }
 }

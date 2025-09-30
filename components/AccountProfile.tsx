@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import AccountAddresses from './AccountAddresses';
 import type { User } from '@/types/shopify';
 
 // Profile edit schema
@@ -289,6 +290,11 @@ export default function AccountProfile({ user }: AccountProfileProps) {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Seção de Endereços */}
+      <div className="mt-8 px-6 pb-6">
+        <AccountAddresses user={user} />
       </div>
     </div>
   );
