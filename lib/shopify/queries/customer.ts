@@ -32,10 +32,11 @@ export const GET_CUSTOMER = `
             address1
             address2
             city
-            province
-            country
+            provinceCode
+            countryCodeV2
             zip
             phone
+            company
           }
         }
       }
@@ -201,7 +202,6 @@ export const CUSTOMER_CREATE = `
   mutation customerCreate($input: CustomerCreateInput!) {
     customerCreate(input: $input) {
       customer {
-        id
         email
         firstName
         lastName

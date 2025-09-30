@@ -45,6 +45,7 @@ export async function createCustomer(
     }>(CUSTOMER_CREATE, { input });
 
     if (data.customerCreate.customerUserErrors.length > 0) {
+      console.log(data.customerCreate.customerUserErrors[0].message);
       return {
         success: false,
         message: data.customerCreate.customerUserErrors[0].message,

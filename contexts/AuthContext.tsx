@@ -20,6 +20,8 @@ import type {
   Address,
 } from '../types/shopify';
 
+import { useRouter } from 'next/navigation';
+
 // Auth actions
 type AuthAction =
   | { type: 'SET_LOADING'; payload: boolean }
@@ -80,22 +82,23 @@ function convertShopifyCustomerToUser(customer: ShopifyCustomer): User {
     firstName: customer.firstName || '',
     lastName: customer.lastName || '',
     phone: customer.phone || undefined,
-    acceptsMarketing: customer.acceptsMarketing,
-    addresses: customer.addresses.nodes.map(
-      (address): Address => ({
-        id: address.id,
-        address1: address.address1,
-        address2: address.address2,
-        city: address.city,
-        province: address.provinceCode,
-        zip: address.zip,
-        country: address.countryCodeV2,
-        firstName: address.firstName,
-        lastName: address.lastName,
-        company: address.company,
-        phone: address.phone,
-      })
-    ),
+    acceptsMarketing: customer.acceptsMarketing || false,
+    addresses:
+      customer.addresses?.edges?.map(
+        (edge): Address => ({
+          id: edge.node.id,
+          address1: edge.node.address1,
+          address2: edge.node.address2,
+          city: edge.node.city,
+          province: edge.node.provinceCode,
+          zip: edge.node.zip,
+          country: edge.node.countryCodeV2,
+          firstName: edge.node.firstName,
+          lastName: edge.node.lastName,
+          company: edge.node.company,
+          phone: edge.node.phone,
+        })
+      ) || [],
     orders: [], // Orders will be loaded separately when needed
   };
 }
@@ -103,6 +106,7 @@ function convertShopifyCustomerToUser(customer: ShopifyCustomer): User {
 // Auth provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const router = useRouter();
 
   // Initialize user from localStorage (SSR-safe)
   useEffect(() => {
@@ -254,7 +258,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Always clear local storage and user state
     safeLocalStorage.removeItem('shopify-user');
     safeLocalStorage.removeItem('shopify-auth-token');
+
     dispatch({ type: 'LOGOUT' });
+    router.push('/');
   };
 
   // Update user function

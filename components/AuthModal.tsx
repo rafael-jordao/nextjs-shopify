@@ -23,7 +23,22 @@ const registerSchema = z
     confirmPassword: z.string().min(6, 'Password confirmation is required'),
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-    phone: z.string().optional(),
+    phone: z
+      .string()
+      .optional()
+      .refine(
+        (phone) => {
+          if (!phone || phone.trim() === '') return true; // Optional field
+          // Remove todos os caracteres não numéricos
+          const cleanPhone = phone.replace(/\D/g, '');
+          // Deve ter 11 dígitos (2 do DDD + 9 do número)
+          return cleanPhone.length === 11;
+        },
+        {
+          message:
+            'Telefone deve ter 11 dígitos (DDD + número). Ex: 83999999999',
+        }
+      ),
     acceptsMarketing: z.boolean().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -47,6 +62,33 @@ export default function AuthModal({
 }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'register'>(defaultMode);
   const { login, register, isLoading } = useAuth();
+
+  // Função para formatar telefone brasileiro
+  const formatPhoneForShopify = (
+    phone: string | undefined
+  ): string | undefined => {
+    if (!phone || phone.trim() === '') return undefined;
+
+    // Remove todos os caracteres não numéricos
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    // Se já tem 11 dígitos, adiciona +55
+    if (cleanPhone.length === 11) {
+      return `+55${cleanPhone}`;
+    }
+
+    // Se tem 13 dígitos e começa com 55, adiciona +
+    if (cleanPhone.length === 13 && cleanPhone.startsWith('55')) {
+      return `+${cleanPhone}`;
+    }
+
+    // Se já tem + no início, retorna como está
+    if (phone.startsWith('+55')) {
+      return phone.replace(/\D/g, '').replace(/^55/, '+55');
+    }
+
+    return undefined;
+  };
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -72,7 +114,7 @@ export default function AuthModal({
       password: data.password,
       firstName: data.firstName,
       lastName: data.lastName,
-      phone: data.phone,
+      phone: formatPhoneForShopify(data.phone),
       acceptsMarketing: data.acceptsMarketing || false,
     });
 
@@ -281,14 +323,25 @@ export default function AuthModal({
                   htmlFor="phone"
                   className="block text-sm font-medium text-gray-700 mb-2"
                 >
-                  Phone Number (Optional)
+                  Telefone (Opcional)
                 </label>
                 <Input
                   type="tel"
                   id="phone"
                   {...registerForm.register('phone')}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="83999999999 (DDD + número)"
+                  className={
+                    registerForm.formState.errors.phone ? 'border-red-500' : ''
+                  }
                 />
+                {registerForm.formState.errors.phone && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {registerForm.formState.errors.phone.message}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Será formatado como +5583999999999
+                </p>
               </div>
 
               <div className="flex items-center space-x-2">

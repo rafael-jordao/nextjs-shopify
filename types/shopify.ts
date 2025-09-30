@@ -194,7 +194,9 @@ export interface ShopifyCustomer {
   phone: string | null;
   acceptsMarketing: boolean;
   addresses: {
-    nodes: ShopifyCustomerAddress[];
+    edges: Array<{
+      node: ShopifyCustomerAddress;
+    }>;
   };
 }
 
