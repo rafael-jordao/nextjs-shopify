@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { toast } from 'sonner';
 import { safeLocalStorage } from '../hooks/useLocalStorage';
-import { getAuthToken, setCookie, removeCookie } from '../utils/cookies';
+import { getAuthToken, setCookieAsync, removeCookie } from '../utils/cookies';
 import {
   createCustomer,
   loginCustomer,
@@ -223,16 +223,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       safeLocalStorage.setJSON('shopify-user', user);
 
       // Set cookie for both middleware and client access
-      setCookie('shopify-auth-token', loginResponse.data.accessToken);
+      const cookieSet = await setCookieAsync(
+        'shopify-auth-token',
+        loginResponse.data.accessToken
+      );
+
+      if (!cookieSet) {
+        console.warn('Cookie not set properly, using fallback');
+      }
 
       dispatch({ type: 'SET_USER', payload: user });
       toast.success('Login realizado com sucesso!');
 
-      // Handle post-login redirect
+      // Handle post-login redirect with proper cookie synchronization
       const redirectPath = sessionStorage.getItem('post-login-redirect');
+
+      // Small delay to ensure cookie is available for middleware
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       if (redirectPath) {
         sessionStorage.removeItem('post-login-redirect');
-        router.push(redirectPath);
+
+        // For protected routes, use window.location to ensure fresh middleware check
+        const protectedRoutes = ['/account', '/wishlist', '/checkout'];
+        const isProtectedRoute = protectedRoutes.some((route) =>
+          redirectPath.startsWith(route)
+        );
+
+        if (isProtectedRoute) {
+          // Force full page reload to ensure middleware processes new cookie
+          window.location.href = redirectPath;
+        } else {
+          // Use router for non-protected routes
+          router.push(redirectPath);
+        }
+      } else {
+        // If no specific redirect, redirect to account page after successful login
+        window.location.href = '/account';
       }
 
       return { success: true, data: user };

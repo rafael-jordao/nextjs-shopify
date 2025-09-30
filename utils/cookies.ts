@@ -49,6 +49,36 @@ export function setCookie(
   if (maxAge) cookieString += `; max-age=${maxAge}`;
 
   document.cookie = cookieString;
+
+  // Force document cookie update by reading it back
+  // This helps ensure the cookie is available immediately
+  const _ = document.cookie;
+}
+
+/**
+ * Set a cookie and wait for it to be available
+ */
+export async function setCookieAsync(
+  name: string,
+  value: string,
+  options: {
+    path?: string;
+    secure?: boolean;
+    sameSite?: string;
+    maxAge?: number;
+  } = {}
+): Promise<boolean> {
+  setCookie(name, value, options);
+
+  // Wait up to 500ms for cookie to be available
+  for (let i = 0; i < 10; i++) {
+    if (getCookie(name) === value) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  return false;
 }
 
 /**
