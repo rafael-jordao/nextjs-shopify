@@ -291,4 +291,9 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
+  recoverPassword: (
+    email: string
+  ) => Promise<{ success: boolean; message?: string }>;
+  setUser: (user: User) => void;
+  setIsAuthenticated: (isAuthenticated: boolean) => void;
 }

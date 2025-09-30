@@ -6,6 +6,9 @@ import {
   CUSTOMER_ACCESS_TOKEN_CREATE,
   CUSTOMER_ACCESS_TOKEN_DELETE,
   CUSTOMER_UPDATE,
+  CUSTOMER_RECOVER,
+  CUSTOMER_ACTIVATE_BY_URL,
+  CUSTOMER_RESET_BY_URL,
 } from './queries/customer';
 import { ShopifyResponse } from '../../types/shopify';
 
@@ -32,7 +35,7 @@ interface CustomerUpdateInput {
   acceptsMarketing?: boolean;
 }
 
-// Create new customer account
+// Create new customer account (without password - requires activation)
 export async function createCustomer(
   input: CustomerCreateInput
 ): Promise<ShopifyResponse> {
@@ -54,13 +57,13 @@ export async function createCustomer(
 
     return {
       success: true,
-      message: 'Conta criada com sucesso',
+      message: 'Account created successfully!',
       data: data.customerCreate.customer,
     };
   } catch (error) {
     return {
       success: false,
-      message: 'Erro ao criar conta. Tente novamente.',
+      message: 'Error creating account. Please try again.',
     };
   }
 }
@@ -200,13 +203,134 @@ export async function getOrder(id: string): Promise<ShopifyResponse> {
 
     return {
       success: true,
-      message: 'Pedido carregado com sucesso',
+      message: 'Order loaded successfully',
       data: data.order,
     };
   } catch (error) {
     return {
       success: false,
-      message: 'Erro ao carregar pedido',
+      message: 'Error loading order',
+    };
+  }
+}
+
+// Recover customer password
+export async function recoverCustomerPassword(
+  email: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerRecover: {
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_RECOVER, { email });
+
+    if (data.customerRecover.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerRecover.customerUserErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Password recovery email sent successfully',
+    };
+  } catch (error) {
+    console.error('Error recovering password:', error);
+    return {
+      success: false,
+      message: 'Error sending password recovery email',
+    };
+  }
+}
+
+// Activate customer account with password
+export async function activateCustomerByUrl(
+  activationUrl: string,
+  password: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerActivateByUrl: {
+        customer: any;
+        customerAccessToken: { accessToken: string; expiresAt: string } | null;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_ACTIVATE_BY_URL, { activationUrl, password });
+
+    if (data.customerActivateByUrl.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerActivateByUrl.customerUserErrors[0].message,
+      };
+    }
+
+    if (!data.customerActivateByUrl.customerAccessToken) {
+      return {
+        success: false,
+        message: 'Failed to activate account',
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Account activated successfully',
+      data: {
+        customer: data.customerActivateByUrl.customer,
+        accessToken: data.customerActivateByUrl.customerAccessToken,
+      },
+    };
+  } catch (error) {
+    console.error('Error activating customer:', error);
+    return {
+      success: false,
+      message: 'Error activating account. Please try again.',
+    };
+  }
+}
+
+// Reset customer password with URL
+export async function resetCustomerByUrl(
+  resetUrl: string,
+  password: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerResetByUrl: {
+        customer: any;
+        customerAccessToken: { accessToken: string; expiresAt: string } | null;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_RESET_BY_URL, { resetUrl, password });
+
+    if (data.customerResetByUrl.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerResetByUrl.customerUserErrors[0].message,
+      };
+    }
+
+    if (!data.customerResetByUrl.customerAccessToken) {
+      return {
+        success: false,
+        message: 'Failed to reset password',
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Password reset successfully',
+      data: {
+        customer: data.customerResetByUrl.customer,
+        accessToken: data.customerResetByUrl.customerAccessToken,
+      },
+    };
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    return {
+      success: false,
+      message: 'Error resetting password. Please try again.',
     };
   }
 }

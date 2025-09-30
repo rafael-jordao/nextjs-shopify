@@ -3,12 +3,14 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { toast } from 'sonner';
 import { safeLocalStorage } from '../hooks/useLocalStorage';
+import { getAuthToken, setCookie, removeCookie } from '../utils/cookies';
 import {
   createCustomer,
   loginCustomer,
   logoutCustomer,
   getCustomer,
   updateCustomer,
+  recoverCustomerPassword,
 } from '../lib/shopify/customer';
 import type {
   User,
@@ -113,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeUser = async () => {
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
-        const token = safeLocalStorage.getItem('shopify-auth-token');
+        const token = getAuthToken();
         const savedUser = safeLocalStorage.getItem('shopify-user');
 
         if (token && savedUser) {
@@ -153,11 +155,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeUser();
 
-    // Listen for localStorage changes (like manual token removal between tabs)
+    // Listen for localStorage changes (like manual user removal between tabs)
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'shopify-auth-token' && event.newValue === null) {
-        // Token was removed, logout user immediately
-        safeLocalStorage.removeItem('shopify-user');
+      if (event.key === 'shopify-user' && event.newValue === null) {
+        // User was removed, logout user immediately
         dispatch({ type: 'LOGOUT' });
       }
     };
@@ -172,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Separate effect for periodic token validation
   useEffect(() => {
     const checkTokenValidity = () => {
-      const token = safeLocalStorage.getItem('shopify-auth-token');
+      const token = getAuthToken();
       if (state.user && !token) {
         // User is logged in but no token exists - force logout
         safeLocalStorage.removeItem('shopify-user');
@@ -218,15 +219,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Convert Shopify customer to User interface
       const user = convertShopifyCustomerToUser(customerResponse.data);
 
-      // Save user and token to localStorage (with SSR safety)
+      // Save user to localStorage (with SSR safety)
       safeLocalStorage.setJSON('shopify-user', user);
-      safeLocalStorage.setItem(
-        'shopify-auth-token',
-        loginResponse.data.accessToken
-      );
+
+      // Set cookie for both middleware and client access
+      setCookie('shopify-auth-token', loginResponse.data.accessToken);
 
       dispatch({ type: 'SET_USER', payload: user });
       toast.success('Login realizado com sucesso!');
+
+      // Handle post-login redirect
+      const redirectPath = sessionStorage.getItem('post-login-redirect');
+      if (redirectPath) {
+        sessionStorage.removeItem('post-login-redirect');
+        router.push(redirectPath);
+      }
 
       return { success: true, data: user };
     } catch (error: any) {
@@ -246,11 +253,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Create customer using Shopify API
       const registerResponse = await createCustomer({
         email: userData.email,
+        password: userData.password,
         firstName: userData.firstName,
         lastName: userData.lastName,
         phone: userData.phone,
         acceptsMarketing: userData.acceptsMarketing,
-        password: userData.password,
       });
 
       if (!registerResponse.success) {
@@ -259,17 +266,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: registerResponse.message };
       }
 
-      // Convert Shopify customer to User interface
-      const user = convertShopifyCustomerToUser(registerResponse.data);
+      toast.success('Account created successfully!');
 
-      // Save user to localStorage (with SSR safety)
-      safeLocalStorage.setJSON('shopify-user', user);
-      safeLocalStorage.setItem('shopify-auth-token', 'registered-user-token'); // In real implementation, use proper token
-
-      dispatch({ type: 'SET_USER', payload: user });
-      toast.success('Conta criada com sucesso!');
-
-      return { success: true, data: user };
+      return {
+        success: true,
+        message: 'Account created successfully!',
+        data: registerResponse.data,
+      };
     } catch (error: any) {
       const errorMessage = error.message || 'Erro inesperado ao criar conta';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -280,7 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout function
   const logout = async () => {
-    const token = safeLocalStorage.getItem('shopify-auth-token');
+    const token = getAuthToken();
 
     // If there's a valid token, call Shopify logout API
     if (token && token !== 'registered-user-token') {
@@ -292,7 +295,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Always clear local storage and user state
     safeLocalStorage.removeItem('shopify-user');
-    safeLocalStorage.removeItem('shopify-auth-token');
+
+    // Clear cookie (our single source of truth for token)
+    removeCookie('shopify-auth-token');
 
     dispatch({ type: 'LOGOUT' });
     router.push('/');
@@ -307,7 +312,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     dispatch({ type: 'SET_LOADING', payload: true });
 
-    const token = safeLocalStorage.getItem('shopify-auth-token');
+    const token = getAuthToken();
 
     if (token && token !== 'registered-user-token') {
       // Call Shopify's Customer Account API to update user data
@@ -335,7 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     dispatch({ type: 'SET_LOADING', payload: true });
 
-    const token = safeLocalStorage.getItem('shopify-auth-token');
+    const token = getAuthToken();
 
     if (token && token !== 'registered-user-token') {
       // Fetch fresh data from Shopify
@@ -359,6 +364,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Recover password function
+  const recoverPassword = async (
+    email: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
+
+    try {
+      const response = await recoverCustomerPassword(email);
+
+      if (response.success) {
+        toast.success(
+          response.message || 'Password recovery email sent successfully'
+        );
+        return { success: true, message: response.message };
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: response.message });
+        toast.error(
+          response.message || 'Error sending password recovery email'
+        );
+        return { success: false, message: response.message };
+      }
+    } catch (error) {
+      const errorMessage = 'Error sending password recovery email';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      toast.error(errorMessage);
+      return { success: false, message: errorMessage };
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  // Utility functions for manual state updates (used by activation process)
+  const setUser = (user: User) => {
+    dispatch({ type: 'SET_USER', payload: user });
+    safeLocalStorage.setItem('shopify-user', JSON.stringify(user));
+  };
+
+  const setIsAuthenticated = (isAuthenticated: boolean) => {
+    if (!isAuthenticated) {
+      dispatch({ type: 'LOGOUT' });
+    }
+  };
+
   const value: AuthContextType = {
     user: state.user,
     isAuthenticated: state.isAuthenticated,
@@ -369,6 +418,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     updateUser,
     refreshUser,
+    recoverPassword,
+    setUser,
+    setIsAuthenticated,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

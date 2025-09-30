@@ -262,3 +262,58 @@ export const CUSTOMER_UPDATE = `
     }
   }
 `;
+
+export const CUSTOMER_RECOVER = `
+  mutation customerRecover($email: String!) {
+    customerRecover(email: $email) {
+      customerUserErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+export const CUSTOMER_ACTIVATE_BY_URL = `
+  mutation customerActivateByUrl($activationUrl: URL!, $password: String!) {
+    customerActivateByUrl(activationUrl: $activationUrl, password: $password) {
+      customer {
+        id
+        email
+        firstName
+        lastName
+        phone
+      }
+      customerAccessToken {
+        accessToken
+        expiresAt
+      }
+      customerUserErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+export const CUSTOMER_RESET_BY_URL = `
+  mutation customerResetByUrl($resetUrl: URL!, $password: String!) {
+    customerResetByUrl(resetUrl: $resetUrl, password: $password) {
+      customer {
+        id
+        email
+        firstName
+        lastName
+        phone
+      }
+      customerAccessToken {
+        accessToken
+        expiresAt
+      }
+      customerUserErrors {
+        field
+        message
+      }
+    }
+  }
+`;

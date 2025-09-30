@@ -12,53 +12,49 @@ import type { User } from '@/types/shopify';
 
 // Profile edit schema
 const profileEditSchema = z.object({
-  firstName: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  lastName: z.string().min(2, 'Sobrenome deve ter pelo menos 2 caracteres'),
-  email: z.string().email('Por favor, insira um email válido'),
+  firstName: z.string().min(2, 'First name must be at least 2 characters'),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email address'),
   phone: z
     .string()
     .optional()
     .refine(
       (phone) => {
         if (!phone || phone.trim() === '') return true; // Optional field
-        // Remove todos os caracteres não numéricos
+        // Remove all non-numeric characters
         const cleanPhone = phone.replace(/\D/g, '');
-        // Deve ter 11 dígitos (2 do DDD + 9 do número)
-        return cleanPhone.length === 11;
+        // International phone numbers typically have 7-15 digits
+        return cleanPhone.length >= 7 && cleanPhone.length <= 15;
       },
       {
-        message: 'Telefone deve ter 11 dígitos (DDD + número). Ex: 83999999999',
+        message: 'Please enter a valid phone number (7-15 digits)',
       }
     ),
 });
 
 type ProfileEditFormData = z.infer<typeof profileEditSchema>;
 
-// Função para formatar telefone brasileiro
+// Function to format international phone number
 const formatPhoneForShopify = (
   phone: string | undefined
 ): string | undefined => {
   if (!phone || phone.trim() === '') return undefined;
 
-  // Remove todos os caracteres não numéricos
+  // Remove all non-numeric characters
   const cleanPhone = phone.replace(/\D/g, '');
 
-  // Se já tem 11 dígitos, adiciona +55
-  if (cleanPhone.length === 11) {
-    return `+55${cleanPhone}`;
+  // If phone already starts with +, keep it as is (already formatted)
+  if (phone.startsWith('+')) {
+    return phone.replace(/[^+\d]/g, ''); // Keep only + and digits
   }
 
-  // Se tem 13 dígitos e começa com 55, adiciona +
-  if (cleanPhone.length === 13 && cleanPhone.startsWith('55')) {
+  // If phone doesn't start with + and has valid length, add + prefix
+  if (cleanPhone.length >= 7 && cleanPhone.length <= 15) {
     return `+${cleanPhone}`;
   }
 
-  // Se já tem + no início, retorna como está
-  if (phone.startsWith('+55')) {
-    return phone.replace(/\D/g, '').replace(/^55/, '+55');
-  }
-
-  return undefined;
+  // Return the cleaned phone number as fallback
+  return cleanPhone || undefined;
 };
 
 interface AccountProfileProps {
@@ -77,7 +73,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
       firstName: user?.firstName || '',
       lastName: user?.lastName || '',
       email: user?.email || '',
-      phone: user?.phone ? user.phone.replace('+55', '') : '',
+      phone: user?.phone || '',
     },
   });
 
@@ -88,7 +84,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email || '',
-        phone: user.phone ? user.phone.replace('+55', '') : '',
+        phone: user.phone || '',
       });
     }
   }, [user, profileForm]);
@@ -105,10 +101,10 @@ export default function AccountProfile({ user }: AccountProfileProps) {
         phone: formatPhoneForShopify(data.phone),
       });
 
-      toast.success('Perfil atualizado com sucesso!');
+      toast.success('Profile updated successfully!');
       setIsEditingProfile(false);
     } catch (error) {
-      toast.error('Erro ao atualizar perfil. Tente novamente.');
+      toast.error('Error updating profile. Please try again.');
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -122,7 +118,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email || '',
-        phone: user.phone ? user.phone.replace('+55', '') : '',
+        phone: user.phone || '',
       });
     }
   };
@@ -150,7 +146,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nome
+                  First Name
                 </label>
                 <Input
                   type="text"
@@ -169,7 +165,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sobrenome
+                  Last Name
                 </label>
                 <Input
                   type="text"
@@ -205,12 +201,12 @@ export default function AccountProfile({ user }: AccountProfileProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telefone (Opcional)
+                  Phone (Optional)
                 </label>
                 <Input
                   type="tel"
                   {...profileForm.register('phone')}
-                  placeholder="83999999999 (DDD + número)"
+                  placeholder="+1234567890 (international format)"
                   className={
                     profileForm.formState.errors.phone ? 'border-red-500' : ''
                   }
@@ -221,7 +217,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
                   </p>
                 )}
                 <p className="mt-1 text-xs text-gray-500">
-                  Será formatado como +5583999999999
+                  Enter with country code (e.g., +1 for US, +55 for Brazil)
                 </p>
               </div>
             </div>
@@ -231,7 +227,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
                 disabled={isUpdatingProfile}
                 className="flex-1 sm:flex-none"
               >
-                {isUpdatingProfile ? 'Salvando...' : 'Salvar Alterações'}
+                {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
               </Button>
               <Button
                 type="button"
@@ -240,7 +236,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
                 disabled={isUpdatingProfile}
                 className="flex-1 sm:flex-none"
               >
-                Cancelar
+                Cancel
               </Button>
             </div>
           </form>
@@ -248,7 +244,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome
+                First Name
               </label>
               <Input
                 type="text"
@@ -259,7 +255,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sobrenome
+                Last Name
               </label>
               <Input
                 type="text"
@@ -281,12 +277,12 @@ export default function AccountProfile({ user }: AccountProfileProps) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Telefone
+                Phone Number
               </label>
               <Input
                 type="tel"
                 value={user.phone || ''}
-                placeholder="Nenhum telefone cadastrado"
+                placeholder="No phone number registered"
                 readOnly
                 className="bg-gray-50"
               />

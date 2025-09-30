@@ -1,5 +1,7 @@
 import ProductGrid from '@/components/ProductGrid';
 import Header from '../components/Header';
+import AuthRedirectHandler from '@/components/AuthRedirectHandler';
+import { Suspense } from 'react';
 
 import { getProducts } from '../lib/shopify/products';
 
@@ -13,6 +15,9 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+      <Suspense fallback={<div />}>
+        <AuthRedirectHandler />
+      </Suspense>
       <main>
         {/* Hero Section */}
         <div className="relative bg-white">

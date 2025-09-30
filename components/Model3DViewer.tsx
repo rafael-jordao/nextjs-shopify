@@ -140,8 +140,9 @@ export default function Model3DViewer({
     }
 
     return () => {
-      if (modelViewer && modelViewerRef.current?.contains(modelViewer)) {
-        modelViewerRef.current.removeChild(modelViewer);
+      const currentRef = modelViewerRef.current;
+      if (modelViewer && currentRef?.contains(modelViewer)) {
+        currentRef.removeChild(modelViewer);
       }
     };
   }, [source, autoRotate, cameraControls, ar]);
