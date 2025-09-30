@@ -161,6 +161,41 @@ export async function getCustomer(
   }
 }
 
+// Get customer orders only
+export async function getCustomerOrders(
+  customerAccessToken: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customer: {
+        orders: {
+          edges: Array<{
+            node: any;
+          }>;
+        };
+      };
+    }>(GET_CUSTOMER, { customerAccessToken });
+
+    if (!data.customer) {
+      return {
+        success: false,
+        message: 'Customer not found',
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Orders loaded successfully',
+      data: data.customer.orders.edges.map((edge) => edge.node),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Error loading orders',
+    };
+  }
+}
+
 // Update customer information
 export async function updateCustomer(
   customerAccessToken: string,

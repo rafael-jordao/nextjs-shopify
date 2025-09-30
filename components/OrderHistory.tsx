@@ -6,127 +6,26 @@ import Link from 'next/link';
 import { formatMoney } from '@/utils/helpers';
 import { formatOrderStatus, getOrderStatusColor } from '@/utils/helpers';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCustomerOrders, type ShopifyOrder } from '@/hooks/useOrders';
+import LoadingSpinner from './LoadingSpinner';
+import EmptyState from './EmptyState';
 
 export default function OrderHistory() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Mock orders data (expanded)
-  const mockOrders = [
-    {
-      id: 'order-1',
-      name: '#1001',
-      processedAt: '2024-01-15T10:30:00Z',
-      fulfillmentStatus: 'FULFILLED',
-      financialStatus: 'PAID',
-      totalPrice: { amount: '129.99', currencyCode: 'USD' },
-      lineItems: {
-        edges: [
-          {
-            node: {
-              title: 'Classic T-Shirt - Large',
-              quantity: 2,
-              variant: {
-                price: { amount: '29.99', currencyCode: 'USD' },
-                product: {
-                  handle: 'classic-t-shirt',
-                  title: 'Classic T-Shirt',
-                },
-              },
-            },
-          },
-          {
-            node: {
-              title: 'Premium Jeans - 32W',
-              quantity: 1,
-              variant: {
-                price: { amount: '69.99', currencyCode: 'USD' },
-                product: { handle: 'premium-jeans', title: 'Premium Jeans' },
-              },
-            },
-          },
-        ],
-      },
-      shippingAddress: {
-        address1: '123 Main St',
-        city: 'New York',
-        province: 'NY',
-        zip: '10001',
-        country: 'US',
-      },
-    },
-    {
-      id: 'order-2',
-      name: '#1002',
-      processedAt: '2024-01-10T14:20:00Z',
-      fulfillmentStatus: 'UNFULFILLED',
-      financialStatus: 'PAID',
-      totalPrice: { amount: '89.99', currencyCode: 'USD' },
-      lineItems: {
-        edges: [
-          {
-            node: {
-              title: 'Premium Hoodie - Medium',
-              quantity: 1,
-              variant: {
-                price: { amount: '79.99', currencyCode: 'USD' },
-                product: { handle: 'premium-hoodie', title: 'Premium Hoodie' },
-              },
-            },
-          },
-        ],
-      },
-      shippingAddress: {
-        address1: '123 Main St',
-        city: 'New York',
-        province: 'NY',
-        zip: '10001',
-        country: 'US',
-      },
-    },
-    {
-      id: 'order-3',
-      name: '#1003',
-      processedAt: '2023-12-20T09:15:00Z',
-      fulfillmentStatus: 'FULFILLED',
-      financialStatus: 'PAID',
-      totalPrice: { amount: '199.97', currencyCode: 'USD' },
-      lineItems: {
-        edges: [
-          {
-            node: {
-              title: 'Winter Jacket - Large',
-              quantity: 1,
-              variant: {
-                price: { amount: '149.99', currencyCode: 'USD' },
-                product: { handle: 'winter-jacket', title: 'Winter Jacket' },
-              },
-            },
-          },
-          {
-            node: {
-              title: 'Wool Scarf - One Size',
-              quantity: 1,
-              variant: {
-                price: { amount: '49.98', currencyCode: 'USD' },
-                product: { handle: 'wool-scarf', title: 'Wool Scarf' },
-              },
-            },
-          },
-        ],
-      },
-      shippingAddress: {
-        address1: '123 Main St',
-        city: 'New York',
-        province: 'NY',
-        zip: '10001',
-        country: 'US',
-      },
-    },
-  ];
+  const {
+    data: ordersResponse,
+    isLoading,
+    error,
+    isError,
+  } = useCustomerOrders();
+  const orders: ShopifyOrder[] = ordersResponse?.success
+    ? ordersResponse.data || []
+    : [];
 
-  const filteredOrders = mockOrders.filter((order) => {
+  const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.lineItems.edges.some((edge) =>
@@ -137,10 +36,10 @@ export default function OrderHistory() {
     return matchesSearch && matchesStatus;
   });
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <LoadingSpinner />
       </div>
     );
   }
@@ -158,6 +57,26 @@ export default function OrderHistory() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Order History</h1>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-center text-red-600">
+            <p>Error loading orders: {error?.message || 'Unknown error'}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="max-w-6xl mx-auto">
       {/* Page Header */}
@@ -267,20 +186,31 @@ export default function OrderHistory() {
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center">
-                          <svg
-                            className="w-6 h-6 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center overflow-hidden">
+                          {edge.node.variant?.image?.url ? (
+                            <img
+                              src={edge.node.variant.image.url}
+                              alt={
+                                edge.node.variant.image.altText ||
+                                edge.node.title
+                              }
+                              className="w-full h-full object-cover"
                             />
-                          </svg>
+                          ) : (
+                            <svg
+                              className="w-6 h-6 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          )}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">
@@ -292,7 +222,9 @@ export default function OrderHistory() {
                         </div>
                       </div>
                       <p className="text-sm font-medium text-gray-900">
-                        {formatMoney(edge.node.variant.price)}
+                        {edge.node.variant.price
+                          ? formatMoney(edge.node.variant.price)
+                          : 'N/A'}
                       </p>
                     </div>
                   ))}
@@ -302,11 +234,16 @@ export default function OrderHistory() {
               {/* Order Footer */}
               <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-gray-600 mb-2 sm:mb-0">
-                  <p>
-                    Shipped to: {order.shippingAddress.address1},{' '}
-                    {order.shippingAddress.city},{' '}
-                    {order.shippingAddress.province} {order.shippingAddress.zip}
-                  </p>
+                  {order.shippingAddress ? (
+                    <p>
+                      Shipped to: {order.shippingAddress.address1 || 'N/A'},{' '}
+                      {order.shippingAddress.city || 'N/A'},{' '}
+                      {order.shippingAddress.province || 'N/A'}{' '}
+                      {order.shippingAddress.zip || 'N/A'}
+                    </p>
+                  ) : (
+                    <p>Shipping address not available</p>
+                  )}
                 </div>
                 <div className="flex space-x-4">
                   <Link

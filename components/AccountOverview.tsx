@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { formatMoney } from '@/utils/helpers';
 import { formatOrderStatus, getOrderStatusColor } from '@/utils/helpers';
+import { useOrderStats } from '@/hooks/useOrders';
+import LoadingSpinner from './LoadingSpinner';
 import type { User } from '@/types/shopify';
 
 interface AccountOverviewProps {
@@ -10,56 +12,7 @@ interface AccountOverviewProps {
 }
 
 export default function AccountOverview({ user }: AccountOverviewProps) {
-  // Mock orders data (in production, this would come from Shopify)
-  const mockOrders = [
-    {
-      id: 'order-1',
-      name: '#1001',
-      processedAt: '2024-01-15T10:30:00Z',
-      fulfillmentStatus: 'FULFILLED',
-      financialStatus: 'PAID',
-      totalPrice: { amount: '129.99', currencyCode: 'USD' },
-      lineItems: {
-        edges: [
-          {
-            node: {
-              title: 'Classic T-Shirt',
-              quantity: 2,
-              variant: {
-                image: { url: '/placeholder-product.jpg', altText: 'T-Shirt' },
-                product: {
-                  handle: 'classic-t-shirt',
-                  title: 'Classic T-Shirt',
-                },
-              },
-            },
-          },
-        ],
-      },
-    },
-    {
-      id: 'order-2',
-      name: '#1002',
-      processedAt: '2024-01-10T14:20:00Z',
-      fulfillmentStatus: 'UNFULFILLED',
-      financialStatus: 'PAID',
-      totalPrice: { amount: '89.99', currencyCode: 'USD' },
-      lineItems: {
-        edges: [
-          {
-            node: {
-              title: 'Premium Hoodie',
-              quantity: 1,
-              variant: {
-                image: { url: '/placeholder-product.jpg', altText: 'Hoodie' },
-                product: { handle: 'premium-hoodie', title: 'Premium Hoodie' },
-              },
-            },
-          },
-        ],
-      },
-    },
-  ];
+  const { isLoading, orders, stats } = useOrderStats();
 
   return (
     <div className="space-y-8">
@@ -85,7 +38,7 @@ export default function AccountOverview({ user }: AccountOverviewProps) {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Orders</p>
               <p className="text-2xl font-bold text-gray-900">
-                {mockOrders.length}
+                {isLoading ? '-' : stats.totalOrders}
               </p>
             </div>
           </div>
@@ -111,13 +64,7 @@ export default function AccountOverview({ user }: AccountOverviewProps) {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Spent</p>
               <p className="text-2xl font-bold text-gray-900">
-                $
-                {mockOrders
-                  .reduce(
-                    (sum, order) => sum + parseFloat(order.totalPrice.amount),
-                    0
-                  )
-                  .toFixed(2)}
+                {isLoading ? '-' : `$${stats.totalSpent.toFixed(2)}`}
               </p>
             </div>
           </div>
@@ -145,11 +92,7 @@ export default function AccountOverview({ user }: AccountOverviewProps) {
                 Pending Orders
               </p>
               <p className="text-2xl font-bold text-gray-900">
-                {
-                  mockOrders.filter(
-                    (order) => order.fulfillmentStatus === 'UNFULFILLED'
-                  ).length
-                }
+                {isLoading ? '-' : stats.pendingOrders}
               </p>
             </div>
           </div>
@@ -162,40 +105,56 @@ export default function AccountOverview({ user }: AccountOverviewProps) {
           <h3 className="text-lg font-medium text-gray-900">Recent Orders</h3>
         </div>
         <div className="divide-y divide-gray-200">
-          {mockOrders.slice(0, 3).map((order) => (
-            <div key={order.id} className="px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {order.name}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(order.processedAt).toLocaleDateString()}
-                    </p>
+          {isLoading ? (
+            <div className="p-6">
+              <LoadingSpinner />
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              <p>No orders yet</p>
+              <Link
+                href="/products"
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                Start shopping →
+              </Link>
+            </div>
+          ) : (
+            stats.recentOrders.map((order) => (
+              <div key={order.id} className="px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {order.name}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(order.processedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getOrderStatusColor(
+                        order.fulfillmentStatus
+                      )}`}
+                    >
+                      {formatOrderStatus(order.fulfillmentStatus)}
+                    </span>
                   </div>
-                  <span
-                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getOrderStatusColor(
-                      order.fulfillmentStatus
-                    )}`}
-                  >
-                    {formatOrderStatus(order.fulfillmentStatus)}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">
-                    {formatMoney(order.totalPrice)}
-                  </p>
-                  <Link
-                    href={`/account/orders/${order.id}`}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    View Details
-                  </Link>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatMoney(order.totalPrice)}
+                    </p>
+                    <Link
+                      href={`/account/orders/${order.id}`}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      View Details
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         <div className="px-6 py-3 bg-gray-50 text-center">
           <Link
