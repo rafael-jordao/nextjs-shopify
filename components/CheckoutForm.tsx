@@ -1,7 +1,7 @@
 'use client';
 
 // Checkout será feito usando checkoutUrl do carrinho com parâmetros pre-populados
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -42,12 +42,10 @@ export default function CheckoutForm() {
   const { cart, cartItems } = useCart();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [shippingMethods, setShippingMethods] = useState<any[]>([]);
-  const [selectedShipping, setSelectedShipping] = useState<string>('');
 
   // Obter endereço principal do usuário
-  const defaultAddress = user?.addresses?.find((addr) => addr.default);
-
+  const defaultAddress = user?.addresses?.find((addr) => addr);
+  console.log(defaultAddress);
   const {
     register,
     handleSubmit,
@@ -71,6 +69,32 @@ export default function CheckoutForm() {
   });
 
   const watchedValues = watch();
+
+  // Sincronizar valores dos Select quando defaultAddress mudar
+  useEffect(() => {
+    if (defaultAddress) {
+      console.log('DefaultAddress:', defaultAddress); // Debug
+      
+      // Definir país (com fallback para BR se não existir)
+      const country = defaultAddress.country || 'BR';
+      setValue('country', country);
+      
+      // Definir província/estado (com fallback baseado no país)
+      let province = defaultAddress.province;
+      if (!province && country === 'BR') {
+        // Se não tem província mas é Brasil, tentar inferir a partir da cidade
+        // Para João Pessoa, definir como PB
+        if (defaultAddress.city?.toLowerCase().includes('joão pessoa')) {
+          province = 'PB';
+        }
+      }
+      if (province) {
+        setValue('province', province);
+      }
+      
+      console.log('Set country:', country, 'province:', province); // Debug
+    }
+  }, [defaultAddress, setValue]);
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (!cart || cartItems.length === 0) return;

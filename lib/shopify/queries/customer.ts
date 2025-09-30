@@ -18,8 +18,8 @@ export const GET_CUSTOMER = `
         address1
         address2
         city
-        province
-        country
+        provinceCode
+        countryCodeV2
         zip
         phone
       }
@@ -32,8 +32,8 @@ export const GET_CUSTOMER = `
             address1
             address2
             city
-            province
-            country
+            provinceCode
+            countryCodeV2
             zip
             phone
             company
@@ -353,8 +353,8 @@ export const CUSTOMER_ADDRESS_UPDATE = `
         address1
         address2
         city
-        province
-        country
+        provinceCode
+        countryCodeV2
         zip
         phone
         company

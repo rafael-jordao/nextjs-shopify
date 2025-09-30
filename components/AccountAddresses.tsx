@@ -27,14 +27,14 @@ import { getAuthToken } from '@/utils/cookies';
 
 // Schema de validação para endereço
 const addressSchema = z.object({
-  firstName: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  lastName: z.string().min(2, 'Sobrenome deve ter pelo menos 2 caracteres'),
-  address1: z.string().min(5, 'Endereço deve ter pelo menos 5 caracteres'),
+  firstName: z.string().min(2, 'First name must be at least 2 characters'),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+  address1: z.string().min(5, 'Address must be at least 5 characters'),
   address2: z.string().optional(),
-  city: z.string().min(2, 'Cidade deve ter pelo menos 2 caracteres'),
-  province: z.string().min(2, 'Estado é obrigatório'),
-  country: z.string().min(2, 'País é obrigatório'),
-  zip: z.string().min(5, 'CEP deve ter pelo menos 5 caracteres'),
+  city: z.string().min(2, 'City must be at least 2 characters'),
+  province: z.string().min(2, 'State/Province is required'),
+  country: z.string().min(2, 'Country is required'),
+  zip: z.string().min(5, 'ZIP/Postal code must be at least 5 characters'),
   phone: z.string().optional(),
   company: z.string().optional(),
   default: z.boolean().optional(),
@@ -69,7 +69,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
     },
   });
 
-  // Estados brasileiros
+  // Brazilian states
   const brazilianStates = [
     { value: 'AC', label: 'Acre' },
     { value: 'AL', label: 'Alagoas' },
@@ -199,25 +199,23 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
       // Atualizar dados do usuário
       await refreshUser();
 
-      toast.success(
-        editingAddressId ? 'Endereço atualizado!' : 'Endereço adicionado!'
-      );
+      toast.success(editingAddressId ? 'Address updated!' : 'Address added!');
       handleCancelEdit();
     } catch (error) {
-      console.error('Erro ao salvar endereço:', error);
-      toast.error('Erro ao salvar endereço. Tente novamente.');
+      console.error('Error saving address:', error);
+      toast.error('Error saving address. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteAddress = async (addressId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este endereço?')) return;
+    if (!confirm('Are you sure you want to delete this address?')) return;
 
     try {
       const token = getAuthToken();
       if (!token) {
-        throw new Error('Token de acesso não encontrado');
+        throw new Error('Access token not found');
       }
 
       const result = await deleteCustomerAddress(token, addressId);
@@ -229,10 +227,10 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
       // Atualizar dados do usuário
       await refreshUser();
 
-      toast.success('Endereço excluído!');
+      toast.success('Address deleted!');
     } catch (error) {
-      console.error('Erro ao excluir endereço:', error);
-      toast.error('Erro ao excluir endereço.');
+      console.error('Error deleting address:', error);
+      toast.error('Error deleting address.');
     }
   };
 
@@ -240,7 +238,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
     try {
       const token = getAuthToken();
       if (!token) {
-        throw new Error('Token de acesso não encontrado');
+        throw new Error('Access token not found');
       }
 
       const result = await setCustomerDefaultAddress(token, addressId);
@@ -252,25 +250,23 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
       // Atualizar dados do usuário
       await refreshUser();
 
-      toast.success('Endereço principal atualizado!');
+      toast.success('Default address updated!');
     } catch (error) {
-      console.error('Erro ao definir endereço principal:', error);
-      toast.error('Erro ao definir endereço principal.');
+      console.error('Error setting default address:', error);
+      toast.error('Error setting default address.');
     }
   };
-
-  const defaultAddress = user.addresses.find((addr) => addr.default);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900">Endereços</h3>
+        <h3 className="text-lg font-medium text-gray-900">Addresses</h3>
         <Button
           onClick={handleAddAddress}
           disabled={isAddingAddress || editingAddressId !== null}
         >
-          Adicionar Endereço
+          Add Address
         </Button>
       </div>
 
@@ -279,7 +275,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
         <Card>
           <CardHeader>
             <CardTitle>
-              {editingAddressId ? 'Editar Endereço' : 'Novo Endereço'}
+              {editingAddressId ? 'Edit Address' : 'New Address'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -290,7 +286,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nome *
+                    First Name *
                   </label>
                   <Input
                     {...addressForm.register('firstName')}
@@ -309,7 +305,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sobrenome *
+                    Last Name *
                   </label>
                   <Input
                     {...addressForm.register('lastName')}
@@ -329,11 +325,11 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Endereço *
+                  Address *
                 </label>
                 <Input
                   {...addressForm.register('address1')}
-                  placeholder="Rua, número"
+                  placeholder="Street, number"
                   className={
                     addressForm.formState.errors.address1
                       ? 'border-red-500'
@@ -349,18 +345,18 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Complemento
+                  Apartment, Suite, etc.
                 </label>
                 <Input
                   {...addressForm.register('address2')}
-                  placeholder="Apartamento, bloco, etc."
+                  placeholder="Apartment, building, etc."
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cidade *
+                    City *
                   </label>
                   <Input
                     {...addressForm.register('city')}
@@ -377,7 +373,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Estado *
+                    State *
                   </label>
                   <Select
                     value={addressForm.watch('province')}
@@ -392,7 +388,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
                           : ''
                       }
                     >
-                      <SelectValue placeholder="Selecione o estado" />
+                      <SelectValue placeholder="Select state" />
                     </SelectTrigger>
                     <SelectContent>
                       {brazilianStates.map((state) => (
@@ -411,7 +407,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CEP *
+                    ZIP Code *
                   </label>
                   <Input
                     {...addressForm.register('zip')}
@@ -431,7 +427,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Telefone
+                    Phone
                   </label>
                   <Input
                     {...addressForm.register('phone')}
@@ -441,11 +437,11 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Empresa
+                    Company
                   </label>
                   <Input
                     {...addressForm.register('company')}
-                    placeholder="Nome da empresa (opcional)"
+                    placeholder="Company name (optional)"
                   />
                 </div>
               </div>
@@ -458,17 +454,17 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <label htmlFor="default" className="text-sm text-gray-700">
-                  Definir como endereço principal
+                  Set as default address
                 </label>
               </div>
 
               <div className="flex items-center space-x-3 pt-4 border-t">
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
-                    ? 'Salvando...'
+                    ? 'Saving...'
                     : editingAddressId
-                    ? 'Atualizar'
-                    : 'Adicionar'}
+                    ? 'Update'
+                    : 'Add'}
                 </Button>
                 <Button
                   type="button"
@@ -476,7 +472,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
                   onClick={handleCancelEdit}
                   disabled={isSubmitting}
                 >
-                  Cancelar
+                  Cancel
                 </Button>
               </div>
             </form>
@@ -501,7 +497,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
                       </h4>
                       {address.default && (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Principal
+                          Default
                         </span>
                       )}
                     </div>
@@ -525,7 +521,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
                         size="sm"
                         onClick={() => handleSetDefault(address.id)}
                       >
-                        Tornar Principal
+                        Make Default
                       </Button>
                     )}
                     <Button
@@ -534,7 +530,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
                       onClick={() => handleEditAddress(address)}
                       disabled={isAddingAddress || editingAddressId !== null}
                     >
-                      Editar
+                      Edit
                     </Button>
                     <Button
                       variant="outline"
@@ -543,7 +539,7 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
                       disabled={isAddingAddress || editingAddressId !== null}
                       className="text-red-600 hover:text-red-700 hover:border-red-300"
                     >
-                      Excluir
+                      Delete
                     </Button>
                   </div>
                 </div>
