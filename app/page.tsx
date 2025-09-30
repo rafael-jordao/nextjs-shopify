@@ -7,7 +7,8 @@ import { getProducts } from '../lib/shopify/products';
 export const revalidate = 300;
 
 export default async function Home() {
-  const products = await getProducts(12, 60); // Revalidate every 5 minutes
+  const productsResponse = await getProducts(12, 60); // Revalidate every 5 minutes
+  const products = productsResponse.success ? productsResponse.data || [] : [];
 
   return (
     <div className="min-h-screen bg-gray-50">

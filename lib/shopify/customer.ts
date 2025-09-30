@@ -7,6 +7,7 @@ import {
   CUSTOMER_ACCESS_TOKEN_DELETE,
   CUSTOMER_UPDATE,
 } from './queries/customer';
+import { ShopifyResponse } from '../../types/shopify';
 
 // Customer interfaces
 interface CustomerCreateInput {
@@ -32,124 +33,179 @@ interface CustomerUpdateInput {
 }
 
 // Create new customer account
-export async function createCustomer(input: CustomerCreateInput) {
-  const data = await shopifyFetch<{
-    customerCreate: {
-      customer: any;
-      customerUserErrors: Array<{ field: string; message: string }>;
+export async function createCustomer(
+  input: CustomerCreateInput
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerCreate: {
+        customer: any;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_CREATE, { input });
+
+    if (data.customerCreate.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerCreate.customerUserErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Conta criada com sucesso',
+      data: data.customerCreate.customer,
     };
-  }>(CUSTOMER_CREATE, { input });
-
-  if (data.customerCreate.customerUserErrors.length > 0) {
-    throw new Error(data.customerCreate.customerUserErrors[0].message);
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao criar conta. Tente novamente.',
+    };
   }
-
-  return data.customerCreate.customer;
 }
 
 // Login customer and get access token
-export async function loginCustomer(input: CustomerLoginInput) {
-  const data = await shopifyFetch<{
-    customerAccessTokenCreate: {
-      customerAccessToken: { accessToken: string; expiresAt: string } | null;
-      customerUserErrors: Array<{ field: string; message: string }>;
+export async function loginCustomer(
+  input: CustomerLoginInput
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerAccessTokenCreate: {
+        customerAccessToken: { accessToken: string; expiresAt: string } | null;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_ACCESS_TOKEN_CREATE, { input });
+
+    if (data.customerAccessTokenCreate.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerAccessTokenCreate.customerUserErrors[0].message,
+      };
+    }
+
+    if (!data.customerAccessTokenCreate.customerAccessToken) {
+      return {
+        success: false,
+        message: 'Email ou senha inválidos',
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Login realizado com sucesso',
+      data: data.customerAccessTokenCreate.customerAccessToken,
     };
-  }>(CUSTOMER_ACCESS_TOKEN_CREATE, { input });
-
-  if (data.customerAccessTokenCreate.customerUserErrors.length > 0) {
-    throw new Error(
-      data.customerAccessTokenCreate.customerUserErrors[0].message
-    );
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao fazer login. Tente novamente.',
+    };
   }
-
-  if (!data.customerAccessTokenCreate.customerAccessToken) {
-    throw new Error('Invalid email or password');
-  }
-
-  return data.customerAccessTokenCreate.customerAccessToken;
 }
 
 // Logout customer (delete access token)
-export async function logoutCustomer(customerAccessToken: string) {
-  const data = await shopifyFetch<{
-    customerAccessTokenDelete: {
-      deletedAccessToken: string;
-      userErrors: Array<{ field: string; message: string }>;
+export async function logoutCustomer(
+  customerAccessToken: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerAccessTokenDelete: {
+        deletedAccessToken: string;
+        userErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_ACCESS_TOKEN_DELETE, { customerAccessToken });
+
+    if (data.customerAccessTokenDelete.userErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerAccessTokenDelete.userErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Logout realizado com sucesso',
+      data: data.customerAccessTokenDelete.deletedAccessToken,
     };
-  }>(CUSTOMER_ACCESS_TOKEN_DELETE, { customerAccessToken });
-
-  if (data.customerAccessTokenDelete.userErrors.length > 0) {
-    throw new Error(data.customerAccessTokenDelete.userErrors[0].message);
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao fazer logout',
+    };
   }
-
-  return data.customerAccessTokenDelete.deletedAccessToken;
 }
 
 // Get customer data including orders
-export async function getCustomer(customerAccessToken: string) {
-  const data = await shopifyFetch<{
-    customer: any;
-  }>(GET_CUSTOMER, { customerAccessToken });
+export async function getCustomer(
+  customerAccessToken: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customer: any;
+    }>(GET_CUSTOMER, { customerAccessToken });
 
-  return data.customer;
+    return {
+      success: true,
+      message: 'Dados do cliente carregados com sucesso',
+      data: data.customer,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao carregar dados do cliente',
+    };
+  }
 }
 
 // Update customer information
 export async function updateCustomer(
   customerAccessToken: string,
   customer: CustomerUpdateInput
-) {
-  const data = await shopifyFetch<{
-    customerUpdate: {
-      customer: any;
-      customerUserErrors: Array<{ field: string; message: string }>;
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customerUpdate: {
+        customer: any;
+        customerUserErrors: Array<{ field: string; message: string }>;
+      };
+    }>(CUSTOMER_UPDATE, { customerAccessToken, customer });
+
+    if (data.customerUpdate.customerUserErrors.length > 0) {
+      return {
+        success: false,
+        message: data.customerUpdate.customerUserErrors[0].message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Dados atualizados com sucesso',
+      data: data.customerUpdate.customer,
     };
-  }>(CUSTOMER_UPDATE, { customerAccessToken, customer });
-
-  if (data.customerUpdate.customerUserErrors.length > 0) {
-    throw new Error(data.customerUpdate.customerUserErrors[0].message);
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao atualizar dados. Tente novamente.',
+    };
   }
-
-  return data.customerUpdate.customer;
 }
 
 // Get specific order details
-export async function getOrder(id: string) {
-  const data = await shopifyFetch<{
-    order: any;
-  }>(GET_ORDER, { id });
+export async function getOrder(id: string): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      order: any;
+    }>(GET_ORDER, { id });
 
-  return data.order;
-}
-
-// Helper function to format order status
-export function formatOrderStatus(status: string) {
-  const statusMap: { [key: string]: string } = {
-    FULFILLED: 'Delivered',
-    UNFULFILLED: 'Processing',
-    PARTIALLY_FULFILLED: 'Partially Shipped',
-    PAID: 'Paid',
-    PENDING: 'Payment Pending',
-    PARTIALLY_PAID: 'Partially Paid',
-    REFUNDED: 'Refunded',
-    VOIDED: 'Cancelled',
-  };
-
-  return statusMap[status] || status;
-}
-
-// Helper function to get order status color
-export function getOrderStatusColor(status: string) {
-  const colorMap: { [key: string]: string } = {
-    FULFILLED: 'text-green-600 bg-green-100',
-    UNFULFILLED: 'text-yellow-600 bg-yellow-100',
-    PARTIALLY_FULFILLED: 'text-blue-600 bg-blue-100',
-    PAID: 'text-green-600 bg-green-100',
-    PENDING: 'text-yellow-600 bg-yellow-100',
-    PARTIALLY_PAID: 'text-blue-600 bg-blue-100',
-    REFUNDED: 'text-gray-600 bg-gray-100',
-    VOIDED: 'text-red-600 bg-red-100',
-  };
-
-  return colorMap[status] || 'text-gray-600 bg-gray-100';
+    return {
+      success: true,
+      message: 'Pedido carregado com sucesso',
+      data: data.order,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao carregar pedido',
+    };
+  }
 }

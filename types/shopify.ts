@@ -267,6 +267,13 @@ export interface AuthState {
   error: string | null;
 }
 
+// Interface padrão para respostas das funções Shopify
+export interface ShopifyResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
 export interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;

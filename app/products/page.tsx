@@ -1,6 +1,8 @@
 import Header from '../../components/Header';
-import ProductGrid from '../../components/ProductGrid';
+import ProductsWithFilters from '../../components/ProductsWithFilters';
+import EmptyState from '../../components/EmptyState';
 import { getProducts } from '../../lib/shopify/products';
+import { Button } from '../../components/ui/button';
 
 export const metadata = {
   title: 'All Products | ShopifyStore',
@@ -8,7 +10,8 @@ export const metadata = {
 };
 
 export default async function ProductsPage() {
-  const products = await getProducts(24); // Get more products for the products page
+  const productsResponse = await getProducts(24); // Get more products for the products page
+  const products = productsResponse.success ? productsResponse.data || [] : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -24,39 +27,19 @@ export default async function ProductsPage() {
           </p>
         </div>
 
-        {/* Products Grid */}
+        {/* Products with Filters or Empty State */}
         {products.length > 0 ? (
-          <>
-            <div className="mb-6 text-sm text-gray-500">
-              Showing {products.length} products
-            </div>
-            <ProductGrid products={products} />
-          </>
+          <ProductsWithFilters products={products} />
         ) : (
-          <div className="text-center py-16">
-            <div className="mx-auto w-24 h-24 mb-8">
-              <svg
-                className="w-full h-full text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              No Products Available
-            </h2>
-            <p className="text-gray-600 mb-8">
-              We&apos;re currently updating our inventory. Please check back
-              soon!
-            </p>
-          </div>
+          <EmptyState
+            title="No Products Available"
+            description="We're currently updating our inventory. Please check back soon!"
+            action={
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            }
+          />
         )}
       </main>
     </div>

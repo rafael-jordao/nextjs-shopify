@@ -57,22 +57,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Load cart from localStorage on mount
   useEffect(() => {
     const loadCart = async () => {
-      try {
-        const savedCartId = localStorage.getItem('shopify-cart-id');
-        if (savedCartId) {
-          dispatch({ type: 'SET_LOADING', payload: true });
-          const cart = await getCart(savedCartId);
-          if (cart) {
-            dispatch({ type: 'SET_CART', payload: cart });
-          } else {
-            // Cart not found, clear localStorage
-            localStorage.removeItem('shopify-cart-id');
+      const savedCartId = localStorage.getItem('shopify-cart-id');
+      if (savedCartId) {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        const cartResponse = await getCart(savedCartId);
+
+        if (cartResponse.success && cartResponse.data) {
+          dispatch({ type: 'SET_CART', payload: cartResponse.data });
+        } else {
+          // Cart not found, clear localStorage
+          localStorage.removeItem('shopify-cart-id');
+          if (cartResponse.message) {
+            dispatch({ type: 'SET_ERROR', payload: cartResponse.message });
           }
         }
-      } catch (error) {
-        console.error('Error loading cart:', error);
-        localStorage.removeItem('shopify-cart-id');
-      } finally {
+
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
@@ -82,62 +81,68 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Add to cart function
   const handleAddToCart = async (variantId: string, quantity: number = 1) => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_LOADING', payload: true });
 
-      let cart = state.cart;
+    let cart = state.cart;
 
-      // Create cart if it doesn't exist
-      if (!cart) {
-        cart = await createCart();
-        localStorage.setItem('shopify-cart-id', cart.id);
+    // Create cart if it doesn't exist
+    if (!cart) {
+      const createResponse = await createCart();
+
+      if (!createResponse.success || !createResponse.data) {
+        dispatch({ type: 'SET_ERROR', payload: createResponse.message });
+        return;
       }
 
-      // Add item to cart
-      const updatedCart = await addToCart(cart.id, [
-        { merchandiseId: variantId, quantity },
-      ]);
-
-      dispatch({ type: 'SET_CART', payload: updatedCart });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Failed to add item to cart';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      cart = createResponse.data;
+      localStorage.setItem('shopify-cart-id', cart.id);
     }
+
+    // Add item to cart
+    const addResponse = await addToCart(cart.id, [
+      { merchandiseId: variantId, quantity },
+    ]);
+
+    if (!addResponse.success || !addResponse.data) {
+      dispatch({ type: 'SET_ERROR', payload: addResponse.message });
+      return;
+    }
+
+    dispatch({ type: 'SET_CART', payload: addResponse.data });
   };
 
   // Remove from cart function
   const handleRemoveFromCart = async (lineId: string) => {
-    try {
-      if (!state.cart) return;
+    if (!state.cart) return;
 
-      dispatch({ type: 'SET_LOADING', payload: true });
-      const updatedCart = await removeFromCart(state.cart.id, [lineId]);
-      dispatch({ type: 'SET_CART', payload: updatedCart });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Failed to remove item from cart';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    const removeResponse = await removeFromCart(state.cart.id, [lineId]);
+
+    if (!removeResponse.success || !removeResponse.data) {
+      dispatch({ type: 'SET_ERROR', payload: removeResponse.message });
+      return;
     }
+
+    dispatch({ type: 'SET_CART', payload: removeResponse.data });
   };
 
   // Update cart item quantity
   const handleUpdateCartItem = async (lineId: string, quantity: number) => {
-    try {
-      if (!state.cart) return;
+    if (!state.cart) return;
 
-      dispatch({ type: 'SET_LOADING', payload: true });
-      const updatedCart = await updateCartLine(state.cart.id, [
-        { id: lineId, quantity },
-      ]);
-      dispatch({ type: 'SET_CART', payload: updatedCart });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Failed to update cart item';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    const updateResponse = await updateCartLine(state.cart.id, [
+      { id: lineId, quantity },
+    ]);
+
+    if (!updateResponse.success || !updateResponse.data) {
+      dispatch({ type: 'SET_ERROR', payload: updateResponse.message });
+      return;
     }
+
+    dispatch({ type: 'SET_CART', payload: updateResponse.data });
   };
 
   // Get total items in cart

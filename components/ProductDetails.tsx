@@ -4,8 +4,18 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { ShopifyProduct, ShopifyProductVariant } from '@/types/shopify';
 import { useCart } from '@/contexts/CartContext';
-import { formatMoney } from '@/lib/shopify';
+import { formatMoney } from '@/utils/helpers';
 import MediaViewer from './MediaViewer';
+import { Button } from './ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Badge } from './ui/badge';
+import { toast } from 'sonner';
 
 interface ProductDetailsProps {
   product: ShopifyProduct;
@@ -36,7 +46,12 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
   const handleAddToCart = async () => {
     if (selectedVariant && selectedVariant.availableForSale) {
-      await addToCart(selectedVariant.id, quantity);
+      try {
+        await addToCart(selectedVariant.id, quantity);
+        toast.success(`${product.title} adicionado ao carrinho!`);
+      } catch (error) {
+        toast.error('Erro ao adicionar produto ao carrinho');
+      }
     }
   };
 
@@ -79,28 +94,25 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
           {/* Variants */}
           {variants.length > 1 && (
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">
-                Options
-              </h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Opções</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {variants.map((variant) => (
-                  <button
+                  <Button
                     key={variant.id}
                     onClick={() => handleVariantChange(variant)}
                     disabled={!variant.availableForSale}
-                    className={`p-3 text-sm font-medium rounded-md border transition-colors ${
-                      selectedVariant?.id === variant.id
-                        ? 'border-black bg-black text-white'
-                        : variant.availableForSale
-                        ? 'border-gray-300 text-gray-900 hover:border-gray-400'
-                        : 'border-gray-200 text-gray-400 cursor-not-allowed'
-                    }`}
+                    variant={
+                      selectedVariant?.id === variant.id ? 'default' : 'outline'
+                    }
+                    className="p-3 h-auto flex flex-col items-center justify-center"
                   >
-                    {variant.title}
+                    <span className="text-sm font-medium">{variant.title}</span>
                     {!variant.availableForSale && (
-                      <span className="block text-xs">Out of Stock</span>
+                      <Badge variant="secondary" className="mt-1 text-xs">
+                        Indisponível
+                      </Badge>
                     )}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -112,59 +124,64 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               htmlFor="quantity"
               className="block text-lg font-medium text-gray-900 mb-2"
             >
-              Quantity
+              Quantidade
             </label>
-            <select
-              id="quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              className="block w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+            <Select
+              value={quantity.toString()}
+              onValueChange={(value) => setQuantity(Number(value))}
             >
-              {[...Array(10)].map((_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {i + 1}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[...Array(10)].map((_, i) => (
+                  <SelectItem key={i + 1} value={(i + 1).toString()}>
+                    {i + 1}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Add to Cart Button */}
           <div className="space-y-4">
-            <button
+            <Button
               onClick={handleAddToCart}
               disabled={!selectedVariant?.availableForSale || isLoading}
-              className={`w-full py-4 px-6 text-lg font-medium rounded-md transition-colors ${
-                selectedVariant?.availableForSale && !isLoading
-                  ? 'bg-black text-white hover:bg-gray-800'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+              className="w-full py-6 text-lg font-medium"
+              size="lg"
             >
               {isLoading
-                ? 'Adding to Cart...'
+                ? 'Adicionando ao Carrinho...'
                 : selectedVariant?.availableForSale
-                ? 'Add to Cart'
-                : 'Out of Stock'}
-            </button>
+                ? 'Adicionar ao Carrinho'
+                : 'Indisponível'}
+            </Button>
 
             {/* Product Details */}
-            <div className="border-t pt-6 space-y-3 text-sm text-gray-600">
-              <div className="flex justify-between">
-                <span>SKU</span>
-                <span>{selectedVariant?.id.split('/').pop()}</span>
+            <div className="border-t pt-6 space-y-4 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">SKU</span>
+                <span className="font-medium">
+                  {selectedVariant?.id.split('/').pop()}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span>Availability</span>
-                <span
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Disponibilidade</span>
+                <Badge
+                  variant={
+                    selectedVariant?.availableForSale ? 'default' : 'secondary'
+                  }
                   className={
                     selectedVariant?.availableForSale
-                      ? 'text-green-600'
-                      : 'text-red-600'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
                   }
                 >
                   {selectedVariant?.availableForSale
-                    ? 'In Stock'
-                    : 'Out of Stock'}
-                </span>
+                    ? 'Em Estoque'
+                    : 'Indisponível'}
+                </Badge>
               </div>
             </div>
           </div>

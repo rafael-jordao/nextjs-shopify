@@ -3,11 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-import { formatMoney } from '../lib/shopify/client';
-import {
-  formatOrderStatus,
-  getOrderStatusColor,
-} from '../lib/shopify/customer';
+import { formatMoney } from '@/utils/helpers';
+import { formatOrderStatus, getOrderStatusColor } from '@/utils/helpers';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function OrderHistory() {

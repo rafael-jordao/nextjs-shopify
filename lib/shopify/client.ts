@@ -24,6 +24,7 @@ export async function shopifyFetch<T = any>(
   try {
     // For server-side requests, use Next.js fetch with cache control
     if (typeof window === 'undefined') {
+      console.log('Server-side Shopify fetch');
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -49,45 +50,47 @@ export async function shopifyFetch<T = any>(
 
       return result.data;
     } else {
+      console.log('Client-side Shopify fetch');
       // For client-side requests, use the graphql-request client
       const data = await shopifyClient.request<T>(query, variables);
       return data;
     }
   } catch (error) {
     console.error('Shopify GraphQL Error:', error);
-    throw new Error(
-      `Failed to fetch from Shopify: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`
-    );
+
+    // Handle specific Shopify errors
+    if (error instanceof Error) {
+      // Check for rate limiting errors
+      if (
+        error.message.includes('THROTTLED') ||
+        error.message.includes('Limit exceeded')
+      ) {
+        throw new Error(
+          'Muitas tentativas recentes. Tente novamente em alguns minutos.'
+        );
+      }
+
+      // Check for authentication errors
+      if (
+        error.message.includes('Unauthorized') ||
+        error.message.includes('Invalid access token')
+      ) {
+        throw new Error('Erro de autenticação. Verifique suas credenciais.');
+      }
+
+      // Check for validation errors
+      if (
+        error.message.includes('validation') ||
+        error.message.includes('invalid')
+      ) {
+        throw new Error(
+          'Dados inválidos. Verifique as informações fornecidas.'
+        );
+      }
+
+      throw error;
+    }
+
+    throw new Error('Erro de conexão com o servidor. Tente novamente.');
   }
-}
-
-// Helper function to extract the first image from a product
-export function getProductImage(product: any) {
-  return product?.images?.edges?.[0]?.node || null;
-}
-
-// Helper function to get the first variant from a product
-export function getProductVariant(product: any) {
-  return product?.variants?.edges?.[0]?.node || null;
-}
-
-// Helper function to format money
-export function formatMoney(money: { amount: string; currencyCode: string }) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: money.currencyCode,
-  }).format(parseFloat(money.amount));
-}
-
-// Helper function to get cart line items
-export function getCartLines(cart: any) {
-  return cart?.lines?.edges?.map((edge: any) => edge.node) || [];
-}
-
-// Helper function to calculate cart total items
-export function getCartTotalItems(cart: any) {
-  const lines = getCartLines(cart);
-  return lines.reduce((total: number, line: any) => total + line.quantity, 0);
 }

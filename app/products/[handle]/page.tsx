@@ -12,10 +12,12 @@ interface ProductPageProps {
 
 // Enable ISR with 1 minute revalidation for product pages
 export const revalidate = 60;
+export const dynamicParams = true;
 
 // Generate static params for popular products
 export async function generateStaticParams() {
-  const products = await getProducts(20); // Get top 20 products
+  const productsResponse = await getProducts(20); // Get top 20 products
+  const products = productsResponse.success ? productsResponse.data || [] : [];
 
   return products.map((product) => ({
     handle: product.handle,
@@ -25,7 +27,8 @@ export async function generateStaticParams() {
 // Generate metadata for SEO
 export async function generateMetadata({ params }: ProductPageProps) {
   const { handle } = await params;
-  const product = await getProduct(handle, 60); // Revalidate every minute
+  const productResponse = await getProduct(handle, 60); // Revalidate every minute
+  const product = productResponse.success ? productResponse.data : null;
 
   if (!product) {
     return {
@@ -51,7 +54,8 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { handle } = await params;
-  const product = await getProduct(handle, 60); // Revalidate every minute
+  const productResponse = await getProduct(handle, 60); // Revalidate every minute
+  const product = productResponse.success ? productResponse.data : null;
 
   if (!product) {
     notFound();

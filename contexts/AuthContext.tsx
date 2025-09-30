@@ -6,6 +6,7 @@ import {
   loginCustomer,
   logoutCustomer,
   getCustomer,
+  updateCustomer,
 } from '../lib/shopify/customer';
 import type {
   User,
@@ -112,19 +113,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (token && savedUser && token !== 'registered-user-token') {
           // Try to validate token with Shopify
-          try {
-            const customerData = await getCustomer(token);
-            if (customerData.customer) {
-              const user = convertShopifyCustomerToUser(customerData.customer);
-              dispatch({ type: 'SET_USER', payload: user });
-              // Update localStorage with fresh data
-              localStorage.setItem('shopify-user', JSON.stringify(user));
-            } else {
-              // Invalid token, clear storage
-              localStorage.removeItem('shopify-user');
-              localStorage.removeItem('shopify-auth-token');
-            }
-          } catch (error) {
+          const customerResponse = await getCustomer(token);
+
+          if (customerResponse.success && customerResponse.data) {
+            const user = convertShopifyCustomerToUser(customerResponse.data);
+            dispatch({ type: 'SET_USER', payload: user });
+            // Update localStorage with fresh data
+            localStorage.setItem('shopify-user', JSON.stringify(user));
+          } else {
             // Token validation failed, but keep user data if available
             console.warn('Token validation failed, using cached user data');
             const user = JSON.parse(savedUser);
@@ -147,140 +143,141 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Login function
   const login = async (email: string, password: string) => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      dispatch({ type: 'CLEAR_ERROR' });
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
 
-      // Call Shopify login API - will throw error if login fails
-      const customerAccessToken = await loginCustomer({ email, password });
+    // Call Shopify login API
+    const loginResponse = await loginCustomer({ email, password });
 
-      // Get customer data using the access token
-      const customerData = await getCustomer(customerAccessToken.accessToken);
-
-      if (!customerData.customer) {
-        throw new Error('Failed to retrieve customer data');
-      }
-
-      // Convert Shopify customer to User interface
-      const user = convertShopifyCustomerToUser(customerData.customer);
-
-      // Save user and token to localStorage
-      localStorage.setItem('shopify-user', JSON.stringify(user));
-      localStorage.setItem(
-        'shopify-auth-token',
-        customerAccessToken.accessToken
-      );
-
-      dispatch({ type: 'SET_USER', payload: user });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Login failed';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    if (!loginResponse.success) {
+      dispatch({ type: 'SET_ERROR', payload: loginResponse.message });
+      return;
     }
+
+    // Get customer data using the access token
+    const customerResponse = await getCustomer(loginResponse.data.accessToken);
+
+    if (!customerResponse.success || !customerResponse.data) {
+      dispatch({ type: 'SET_ERROR', payload: customerResponse.message });
+      return;
+    }
+
+    // Convert Shopify customer to User interface
+    const user = convertShopifyCustomerToUser(customerResponse.data);
+
+    // Save user and token to localStorage
+    localStorage.setItem('shopify-user', JSON.stringify(user));
+    localStorage.setItem('shopify-auth-token', loginResponse.data.accessToken);
+
+    dispatch({ type: 'SET_USER', payload: user });
   };
 
   // Register function
   const register = async (userData: RegisterData) => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      dispatch({ type: 'CLEAR_ERROR' });
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'CLEAR_ERROR' });
 
-      // Create customer using Shopify API
-      const customerResponse = await createCustomer({
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        phone: userData.phone,
-        acceptsMarketing: userData.acceptsMarketing,
-        password: userData.password,
-      });
+    // Create customer using Shopify API
+    const registerResponse = await createCustomer({
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      phone: userData.phone,
+      acceptsMarketing: userData.acceptsMarketing,
+      password: userData.password,
+    });
 
-      if (customerResponse.customerUserErrors.length > 0) {
-        throw new Error(customerResponse.customerUserErrors[0].message);
-      }
-
-      // Convert Shopify customer to User interface
-      const user = convertShopifyCustomerToUser(customerResponse.customer);
-
-      // Save user to localStorage (consider using secure storage in production)
-      localStorage.setItem('shopify-user', JSON.stringify(user));
-      localStorage.setItem('shopify-auth-token', 'registered-user-token'); // In real implementation, use proper token
-
-      dispatch({ type: 'SET_USER', payload: user });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Registration failed';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    if (!registerResponse.success) {
+      dispatch({ type: 'SET_ERROR', payload: registerResponse.message });
+      return;
     }
+
+    // Convert Shopify customer to User interface
+    const user = convertShopifyCustomerToUser(registerResponse.data);
+
+    // Save user to localStorage (consider using secure storage in production)
+    localStorage.setItem('shopify-user', JSON.stringify(user));
+    localStorage.setItem('shopify-auth-token', 'registered-user-token'); // In real implementation, use proper token
+
+    dispatch({ type: 'SET_USER', payload: user });
   };
 
   // Logout function
   const logout = async () => {
-    try {
-      const token = localStorage.getItem('shopify-auth-token');
+    const token = localStorage.getItem('shopify-auth-token');
 
-      // If there's a valid token, call Shopify logout API
-      if (token && token !== 'registered-user-token') {
-        await logoutCustomer(token);
+    // If there's a valid token, call Shopify logout API
+    if (token && token !== 'registered-user-token') {
+      const logoutResponse = await logoutCustomer(token);
+      if (!logoutResponse.success) {
+        console.warn('Logout API call failed:', logoutResponse.message);
       }
-    } catch (error) {
-      console.error('Error during logout:', error);
-    } finally {
-      // Always clear local storage and user state
-      localStorage.removeItem('shopify-user');
-      localStorage.removeItem('shopify-auth-token');
-      dispatch({ type: 'LOGOUT' });
     }
+
+    // Always clear local storage and user state
+    localStorage.removeItem('shopify-user');
+    localStorage.removeItem('shopify-auth-token');
+    dispatch({ type: 'LOGOUT' });
   };
 
   // Update user function
   const updateUser = async (userData: Partial<User>) => {
-    try {
-      if (!state.user) throw new Error('No user logged in');
+    if (!state.user) {
+      dispatch({ type: 'SET_ERROR', payload: 'Usuário não logado' });
+      return;
+    }
 
-      dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_LOADING', payload: true });
 
-      // In production, call Shopify's Customer Account API to update user data
-      // For demo purposes, we'll just update locally
+    const token = localStorage.getItem('shopify-auth-token');
+
+    if (token && token !== 'registered-user-token') {
+      // Call Shopify's Customer Account API to update user data
+      const updateResponse = await updateCustomer(token, userData);
+
+      if (!updateResponse.success) {
+        dispatch({ type: 'SET_ERROR', payload: updateResponse.message });
+        return;
+      }
+
+      const updatedUser = convertShopifyCustomerToUser(updateResponse.data);
+      localStorage.setItem('shopify-user', JSON.stringify(updatedUser));
+      dispatch({ type: 'SET_USER', payload: updatedUser });
+    } else {
+      // For demo users, update locally
       const updatedUser = { ...state.user, ...userData };
       localStorage.setItem('shopify-user', JSON.stringify(updatedUser));
       dispatch({ type: 'SET_USER', payload: updatedUser });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Update failed';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
     }
   };
 
   // Refresh user data
   const refreshUser = async () => {
-    try {
-      if (!state.user) return;
+    if (!state.user) return;
 
-      dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_LOADING', payload: true });
 
-      const token = localStorage.getItem('shopify-auth-token');
+    const token = localStorage.getItem('shopify-auth-token');
 
-      if (token && token !== 'registered-user-token') {
-        // Fetch fresh data from Shopify
-        const customerData = await getCustomer(token);
-        if (customerData.customer) {
-          const user = convertShopifyCustomerToUser(customerData.customer);
-          localStorage.setItem('shopify-user', JSON.stringify(user));
-          dispatch({ type: 'SET_USER', payload: user });
-        }
+    if (token && token !== 'registered-user-token') {
+      // Fetch fresh data from Shopify
+      const customerResponse = await getCustomer(token);
+
+      if (customerResponse.success && customerResponse.data) {
+        const user = convertShopifyCustomerToUser(customerResponse.data);
+        localStorage.setItem('shopify-user', JSON.stringify(user));
+        dispatch({ type: 'SET_USER', payload: user });
       } else {
-        // Refresh from localStorage for demo users
-        const savedUser = localStorage.getItem('shopify-user');
-        if (savedUser) {
-          const user = JSON.parse(savedUser);
-          dispatch({ type: 'SET_USER', payload: user });
-        }
+        dispatch({ type: 'SET_ERROR', payload: customerResponse.message });
       }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Refresh failed';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    } else {
+      // Refresh from localStorage for demo users
+      const savedUser = localStorage.getItem('shopify-user');
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        dispatch({ type: 'SET_USER', payload: user });
+      }
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
