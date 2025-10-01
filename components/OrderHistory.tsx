@@ -22,7 +22,7 @@ export default function OrderHistory() {
     isError,
   } = useCustomerOrders();
   const orders: ShopifyOrder[] = ordersResponse?.success
-    ? ordersResponse.data || []
+    ? ordersResponse.data.orders || []
     : [];
 
   const filteredOrders = orders.filter((order) => {

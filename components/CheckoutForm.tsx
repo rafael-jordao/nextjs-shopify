@@ -45,7 +45,7 @@ export default function CheckoutForm() {
 
   // Obter endereço principal do usuário
   const defaultAddress = user?.addresses?.find((addr) => addr);
-  console.log(defaultAddress);
+
   const {
     register,
     handleSubmit,
@@ -74,11 +74,11 @@ export default function CheckoutForm() {
   useEffect(() => {
     if (defaultAddress) {
       console.log('DefaultAddress:', defaultAddress); // Debug
-      
+
       // Definir país (com fallback para BR se não existir)
       const country = defaultAddress.country || 'BR';
       setValue('country', country);
-      
+
       // Definir província/estado (com fallback baseado no país)
       let province = defaultAddress.province;
       if (!province && country === 'BR') {
@@ -91,7 +91,7 @@ export default function CheckoutForm() {
       if (province) {
         setValue('province', province);
       }
-      
+
       console.log('Set country:', country, 'province:', province); // Debug
     }
   }, [defaultAddress, setValue]);

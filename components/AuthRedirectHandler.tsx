@@ -2,17 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from './AuthModal';
 
 export default function AuthRedirectHandler() {
   const searchParams = useSearchParams();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
+    // Don't process while auth is still loading
+    if (isLoading) return;
+
     const authRequired = searchParams.get('auth');
     const redirectPath = searchParams.get('redirect');
 
-    if (authRequired === 'required') {
+    if (authRequired === 'required' && !isAuthenticated) {
       setShowAuthModal(true);
 
       // Store redirect path for after login
@@ -26,7 +31,14 @@ export default function AuthRedirectHandler() {
       newUrl.searchParams.delete('redirect');
       window.history.replaceState({}, '', newUrl.toString());
     }
-  }, [searchParams]);
+  }, [searchParams, isAuthenticated, isLoading]);
+
+  // Close modal when user becomes authenticated
+  // useEffect(() => {
+  //   if (isAuthenticated && showAuthModal) {
+  //     setShowAuthModal(false);
+  //   }
+  // }, [isAuthenticated, showAuthModal]);
 
   return (
     <>

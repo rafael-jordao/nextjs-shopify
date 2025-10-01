@@ -31,6 +31,15 @@ export const GET_PRODUCTS = `
                 id
                 title
                 availableForSale
+                image {
+                  id
+                  url
+                  altText
+                  width
+                  height
+                }
+               
+
                 selectedOptions {
                   name
                   value
@@ -117,6 +126,13 @@ export const GET_PRODUCT = `
             id
             title
             availableForSale
+            image {
+              id
+              url
+              altText
+              width
+              height
+            }
             selectedOptions {
               name
               value

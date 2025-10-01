@@ -46,7 +46,7 @@ export default function ProductCard({
 
   return (
     <Card
-      className={`group w-full sm:max-w-[20rem] hover:shadow-lg  transition-shadow overflow-hidden ${className}`}
+      className={`group w-full sm:max-w-[17.5rem] hover:shadow-lg  transition-shadow overflow-hidden ${className}`}
     >
       {/* Imagem do produto - sem padding para encostar no topo */}
       <Link href={`/products/${product.handle}`}>

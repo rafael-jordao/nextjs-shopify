@@ -73,6 +73,8 @@ export interface ShopifyProductVariant {
   availableForSale: boolean;
   selectedOptions: ShopifySelectedOption[];
   price: ShopifyMoney;
+  image?: ShopifyImage;
+  quantityAvailable?: number;
 }
 
 export interface ShopifyCustomerAddress {
@@ -87,14 +89,6 @@ export interface ShopifyCustomerAddress {
   lastName: string | null;
   company: string | null;
   phone: string | null;
-}
-
-export interface ShopifyProductVariant {
-  id: string;
-  title: string;
-  availableForSale: boolean;
-  selectedOptions: ShopifySelectedOption[];
-  price: ShopifyMoney;
 }
 
 export interface ShopifyProduct {
@@ -261,6 +255,52 @@ export interface RegisterData {
   lastName: string;
   phone: string;
   acceptsMarketing: boolean;
+}
+
+export interface ShopifyOrder {
+  id: string;
+  name: string;
+  orderNumber: number;
+  processedAt: string;
+  fulfillmentStatus: string;
+  financialStatus: string;
+  totalPrice: {
+    amount: string;
+    currencyCode: string;
+  };
+  shippingAddress?: {
+    firstName?: string;
+    lastName?: string;
+    address1?: string;
+    address2?: string;
+    city?: string;
+    province?: string;
+    country?: string;
+    zip?: string;
+  };
+  lineItems: {
+    edges: Array<{
+      node: {
+        title: string;
+        quantity: number;
+        variant: {
+          id: string;
+          price?: {
+            amount: string;
+            currencyCode: string;
+          };
+          image?: {
+            url: string;
+            altText: string;
+          };
+          product: {
+            handle: string;
+            title: string;
+          };
+        };
+      };
+    }>;
+  };
 }
 
 export interface AuthState {

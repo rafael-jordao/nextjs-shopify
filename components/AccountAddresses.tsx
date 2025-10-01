@@ -15,15 +15,14 @@ import {
   SelectValue,
 } from './ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { useAuth } from '@/contexts/AuthContext';
 import {
-  createCustomerAddress,
-  updateCustomerAddress,
-  deleteCustomerAddress,
-  setCustomerDefaultAddress,
-} from '@/lib/shopify/customer';
+  useCustomerAddresses,
+  useCreateAddress,
+  useUpdateAddress,
+  useDeleteAddress,
+  useSetDefaultAddress,
+} from '@/hooks/useAddresses';
 import type { User, Address } from '@/types/shopify';
-import { getAuthToken } from '@/utils/cookies';
 
 // Schema de validação para endereço
 const addressSchema = z.object({
@@ -42,12 +41,17 @@ const addressSchema = z.object({
 
 type AddressFormData = z.infer<typeof addressSchema>;
 
-interface AccountAddressesProps {
-  user: User;
-}
+export default function AccountAddresses() {
+  const { data: addressesData, isLoading: addressesLoading } =
+    useCustomerAddresses();
+  const createAddressMutation = useCreateAddress();
+  const updateAddressMutation = useUpdateAddress();
+  const deleteAddressMutation = useDeleteAddress();
+  const setDefaultMutation = useSetDefaultAddress();
 
-export default function AccountAddresses({ user }: AccountAddressesProps) {
-  const { refreshUser } = useAuth();
+  const addresses: Address[] = addressesData?.success
+    ? addressesData?.data?.addresses || []
+    : [];
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,15 +59,15 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
   const addressForm = useForm<AddressFormData>({
     resolver: zodResolver(addressSchema),
     defaultValues: {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
+      firstName: '',
+      lastName: '',
       address1: '',
       address2: '',
       city: '',
       province: '',
       country: 'BR',
       zip: '',
-      phone: user?.phone || '',
+      phone: '',
       company: '',
       default: false,
     },
@@ -104,17 +108,17 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
     setIsAddingAddress(true);
     setEditingAddressId(null);
     addressForm.reset({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
+      firstName: '',
+      lastName: '',
       address1: '',
       address2: '',
       city: '',
       province: '',
       country: 'BR',
       zip: '',
-      phone: user?.phone || '',
+      phone: '',
       company: '',
-      default: user.addresses.length === 0, // Primeiro endereço é padrão
+      default: addresses.length === 0, // Primeiro endereço é padrão
     });
   };
 
@@ -146,64 +150,39 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
     setIsSubmitting(true);
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('Token de acesso não encontrado');
-      }
-
       const addressInput = {
         firstName: data.firstName,
         lastName: data.lastName,
         address1: data.address1,
-        address2: data.address2 || undefined,
+        address2: data.address2 || null,
         city: data.city,
         province: data.province,
         country: data.country,
         zip: data.zip,
-        phone: data.phone || undefined,
-        company: data.company || undefined,
+        phone: data.phone || null,
+        company: data.company || null,
       };
-
-      let result;
 
       if (editingAddressId) {
         // Editando endereço existente
-        result = await updateCustomerAddress(
-          token,
-          editingAddressId,
-          addressInput
-        );
+        await updateAddressMutation.mutateAsync({
+          id: editingAddressId,
+          addressData: addressInput,
+        });
       } else {
         // Criando novo endereço
-        result = await createCustomerAddress(token, addressInput);
-      }
+        const result = await createAddressMutation.mutateAsync(addressInput);
 
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-
-      // Se este endereço foi marcado como padrão, definir como padrão
-      if (data.default && result.data?.id) {
-        const defaultResult = await setCustomerDefaultAddress(
-          token,
-          result.data.id
-        );
-        if (!defaultResult.success) {
-          console.warn(
-            'Erro ao definir endereço como padrão:',
-            defaultResult.message
-          );
+        // Se este endereço foi marcado como padrão, definir como padrão
+        if (data.default && result.data?.id) {
+          await setDefaultMutation.mutateAsync(result.data.id);
         }
       }
 
-      // Atualizar dados do usuário
-      await refreshUser();
-
-      toast.success(editingAddressId ? 'Address updated!' : 'Address added!');
       handleCancelEdit();
     } catch (error) {
       console.error('Error saving address:', error);
-      toast.error('Error saving address. Please try again.');
+      // O toast de erro já é tratado pelas mutations
     } finally {
       setIsSubmitting(false);
     }
@@ -213,47 +192,19 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
     if (!confirm('Are you sure you want to delete this address?')) return;
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('Access token not found');
-      }
-
-      const result = await deleteCustomerAddress(token, addressId);
-
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-
-      // Atualizar dados do usuário
-      await refreshUser();
-
-      toast.success('Address deleted!');
+      await deleteAddressMutation.mutateAsync(addressId);
     } catch (error) {
       console.error('Error deleting address:', error);
-      toast.error('Error deleting address.');
+      // O toast de erro já é tratado pela mutation
     }
   };
 
   const handleSetDefault = async (addressId: string) => {
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('Access token not found');
-      }
-
-      const result = await setCustomerDefaultAddress(token, addressId);
-
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-
-      // Atualizar dados do usuário
-      await refreshUser();
-
-      toast.success('Default address updated!');
+      await setDefaultMutation.mutateAsync(addressId);
     } catch (error) {
       console.error('Error setting default address:', error);
-      toast.error('Error setting default address.');
+      // O toast de erro já é tratado pela mutation
     }
   };
 
@@ -481,9 +432,14 @@ export default function AccountAddresses({ user }: AccountAddressesProps) {
       )}
 
       {/* Lista de endereços */}
-      {user.addresses.length > 0 ? (
+      {addressesLoading ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-2 text-sm text-gray-600">Loading addresses...</p>
+        </div>
+      ) : addresses.length > 0 ? (
         <div className="space-y-4">
-          {user.addresses.map((address) => (
+          {addresses.map((address) => (
             <Card
               key={address.id}
               className={address.default ? 'ring-2 ring-blue-500' : ''}

@@ -10,6 +10,7 @@ import {
   removeFromCart,
   getCart,
 } from '../lib/shopify';
+import { safeLocalStorage } from '@/hooks/useLocalStorage';
 
 // Cart state interface
 interface CartState {
@@ -63,10 +64,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Get cart ID from localStorage (client-side only)
   const getCartId = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('shopify-cart-id');
-    }
-    return null;
+    return safeLocalStorage.getItem('shopify-cart-id');
   };
 
   // TanStack Query para carregar o carrinho
@@ -79,9 +77,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const response = await getCart(cartId);
       if (!response.success) {
         // Cart not found, clear localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('shopify-cart-id');
-        }
+        safeLocalStorage.removeItem('shopify-cart-id');
         throw new Error(response.message);
       }
       return response.data;
@@ -111,9 +107,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     mutationFn: createCart,
     onSuccess: (data) => {
       if (data.success && data.data) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('shopify-cart-id', data.data.id);
-        }
+        safeLocalStorage.setItem('shopify-cart-id', data.data.id);
         queryClient.setQueryData(CART_QUERY_KEYS.cart(data.data.id), data.data);
       }
     },
@@ -245,9 +239,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Clear cart
   const clearCart = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('shopify-cart-id');
-    }
+    safeLocalStorage.removeItem('shopify-cart-id');
+
     dispatch({ type: 'CLEAR_CART' });
   };
 

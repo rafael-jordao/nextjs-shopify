@@ -6,7 +6,7 @@ import { formatOrderStatus, getOrderStatusColor } from '@/utils/helpers';
 import { useCustomerOrders } from '@/hooks/useOrders';
 import LoadingSpinner from './LoadingSpinner';
 import EmptyState from './EmptyState';
-import type { User } from '@/types/shopify';
+import type { ShopifyOrder, User } from '@/types/shopify';
 
 interface AccountOrdersProps {
   user: User;
@@ -20,7 +20,9 @@ export default function AccountOrders({ user }: AccountOrdersProps) {
     isError,
   } = useCustomerOrders();
 
-  const orders = ordersResponse?.success ? ordersResponse.data || [] : [];
+  const orders: ShopifyOrder[] = ordersResponse?.success
+    ? ordersResponse.data.orders || []
+    : [];
 
   if (isLoading) {
     return (

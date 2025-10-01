@@ -63,7 +63,7 @@ export default function Cart({ children }: CartProps) {
           )}
         </div>
       </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:w-1/4 p-0">
+      <SheetContent side="right" className="w-full sm:w-1/4 md:w-1/2 p-0">
         <SheetHeader className="px-6 py-4 border-b">
           <SheetTitle>Carrinho</SheetTitle>
         </SheetHeader>

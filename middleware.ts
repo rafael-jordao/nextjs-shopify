@@ -10,14 +10,14 @@ const protectedRoutes = [
 ];
 
 // Define public routes that should redirect to home if user is authenticated
-const authRoutes = ['/account/activate', '/reset-password'];
+const authRoutes = ['/reset-password'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Get authentication token from cookies or headers
   const authToken =
-    request.cookies.get('shopify-auth-token')?.value ||
+    request.cookies.get('customer_session')?.value ||
     request.headers.get('Authorization')?.replace('Bearer ', '');
 
   // Check if current path is a protected route

@@ -42,8 +42,26 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     image: image,
   }));
 
-  // Use media if available, otherwise use converted images
-  const displayMedia = media.length > 0 ? media : mediaFromImages;
+  // Use variant image if available, otherwise use product media/images
+  let displayMedia = media.length > 0 ? media : mediaFromImages;
+
+  // If selected variant has a specific image, prioritize it
+  if (selectedVariant?.image) {
+    const variantMedia = {
+      id: selectedVariant.image.id || selectedVariant.image.url,
+      mediaContentType: 'IMAGE' as const,
+      image: selectedVariant.image,
+    };
+    // Put variant image first, followed by other media
+    displayMedia = [
+      variantMedia,
+      ...displayMedia.filter(
+        (m) => m.image?.url !== selectedVariant.image?.url
+      ),
+    ];
+  }
+
+  console.log('Selected Variant:', selectedVariant.image);
 
   const handleAddToCart = async () => {
     if (selectedVariant && selectedVariant.availableForSale) {
@@ -58,6 +76,8 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
   const handleVariantChange = (variant: ShopifyProductVariant) => {
     setSelectedVariant(variant);
+    // Reset quantity to 1 when variant changes
+    setQuantity(1);
   };
 
   return (
@@ -131,6 +151,11 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               className="block text-lg font-medium text-gray-900 mb-2"
             >
               Quantity
+              {selectedVariant?.quantityAvailable && (
+                <span className="text-sm text-gray-500 ml-2">
+                  ({selectedVariant.quantityAvailable} available)
+                </span>
+              )}
             </label>
             <Select
               value={quantity.toString()}
@@ -140,7 +165,11 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[...Array(10)].map((_, i) => (
+                {[
+                  ...Array(
+                    Math.min(selectedVariant?.quantityAvailable || 10, 10)
+                  ),
+                ].map((_, i) => (
                   <SelectItem key={i + 1} value={(i + 1).toString()}>
                     {i + 1}
                   </SelectItem>

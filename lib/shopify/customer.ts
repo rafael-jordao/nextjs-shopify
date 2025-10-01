@@ -14,6 +14,11 @@ import {
   CUSTOMER_ADDRESS_DELETE,
   CUSTOMER_DEFAULT_ADDRESS_UPDATE,
 } from './queries/customer';
+import {
+  GET_CUSTOMER_PROFILE,
+  GET_CUSTOMER_ORDERS,
+  VALIDATE_CUSTOMER_SESSION,
+} from './queries/customer-focused';
 import { ShopifyResponse } from '../../types/shopify';
 
 // Customer interfaces
@@ -163,7 +168,7 @@ export async function getCustomer(
   try {
     const data = await shopifyFetch<{
       customer: any;
-    }>(GET_CUSTOMER, { customerAccessToken });
+    }>(GET_CUSTOMER, { customerAccessToken }, { cache: 'no-store' });
 
     return {
       success: true,
@@ -178,9 +183,58 @@ export async function getCustomer(
   }
 }
 
-// Get customer orders only
-export async function getCustomerOrders(
+// Get customer profile only - optimized for profile operations
+export async function getCustomerProfile(
   customerAccessToken: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customer: any;
+    }>(GET_CUSTOMER_PROFILE, { customerAccessToken }, { cache: 'no-store' });
+
+    return {
+      success: true,
+      message: 'Perfil do cliente carregado com sucesso',
+      data: data.customer,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao carregar perfil do cliente',
+    };
+  }
+}
+
+// Validate customer session - minimal data for auth check
+export async function validateCustomerSession(
+  customerAccessToken: string
+): Promise<ShopifyResponse> {
+  try {
+    const data = await shopifyFetch<{
+      customer: any;
+    }>(
+      VALIDATE_CUSTOMER_SESSION,
+      { customerAccessToken },
+      { cache: 'no-store' }
+    );
+
+    return {
+      success: true,
+      message: 'Sessão validada com sucesso',
+      data: data.customer,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Sessão inválida',
+    };
+  }
+}
+
+// Get customer orders only - optimized query
+export async function getCustomerOrders(
+  customerAccessToken: string,
+  first: number = 10
 ): Promise<ShopifyResponse> {
   try {
     const data = await shopifyFetch<{
@@ -191,7 +245,11 @@ export async function getCustomerOrders(
           }>;
         };
       };
-    }>(GET_CUSTOMER, { customerAccessToken });
+    }>(
+      GET_CUSTOMER_ORDERS,
+      { customerAccessToken, first },
+      { cache: 'no-store' }
+    );
 
     if (!data.customer) {
       return {

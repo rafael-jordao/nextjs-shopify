@@ -1,28 +1,30 @@
+/**
+ * Enhanced AuthContext with secure server-side authentication
+ * Uses API routes for all customer operations to protect customerAccessToken
+ */
+
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useMemo,
+  useCallback,
+} from 'react';
 import { toast } from 'sonner';
 import { safeLocalStorage } from '../hooks/useLocalStorage';
-import { getAuthToken, setCookieAsync, removeCookie } from '../utils/cookies';
-import {
-  createCustomer,
-  loginCustomer,
-  logoutCustomer,
-  getCustomer,
-  updateCustomer,
-  recoverCustomerPassword,
-} from '../lib/shopify/customer';
+import { useRouter } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   User,
   AuthState,
   AuthContextType,
   LoginData,
   RegisterData,
-  ShopifyCustomer,
-  Address,
 } from '../types/shopify';
-
-import { useRouter } from 'next/navigation';
+import { apiCall } from '@/utils/helpers';
 
 // Auth actions
 type AuthAction =
@@ -73,353 +75,317 @@ const initialState: AuthState = {
   error: null,
 };
 
-// Create context
+// Create context with default values to prevent SSR issues
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper function to convert ShopifyCustomer to User
-function convertShopifyCustomerToUser(customer: ShopifyCustomer): User {
-  return {
-    id: customer.id,
-    email: customer.email,
-    firstName: customer.firstName || '',
-    lastName: customer.lastName || '',
-    phone: customer.phone || undefined,
-    acceptsMarketing: customer.acceptsMarketing || false,
-    addresses:
-      customer.addresses?.edges?.map(
-        (edge): Address => ({
-          id: edge.node.id,
-          address1: edge.node.address1,
-          address2: edge.node.address2,
-          city: edge.node.city,
-          province: edge.node.provinceCode,
-          zip: edge.node.zip,
-          country: edge.node.countryCodeV2,
-          firstName: edge.node.firstName,
-          lastName: edge.node.lastName,
-          company: edge.node.company,
-          phone: edge.node.phone,
-        })
-      ) || [],
-    orders: [], // Orders will be loaded separately when needed
-  };
-}
+// API helper functions
+// async function apiCall<T>(
+//   url: string,
+//   options: RequestInit = {}
+// ): Promise<{ success: boolean; data?: T; message?: string; error?: string }> {
+//   try {
+//     const response = await fetch(url, {
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...options.headers,
+//       },
+//       ...options,
+//     });
+
+//     const result = await response.json();
+
+//     if (!response.ok) {
+//       return {
+//         success: false,
+//         error: result.error || result.message || 'Request failed',
+//         message: result.error || result.message || 'Request failed',
+//       };
+//     }
+
+//     return {
+//       success: true,
+//       data: result.data,
+//       message: result.message,
+//     };
+//   } catch (error) {
+//     console.error('API call error:', error);
+//     return {
+//       success: false,
+//       error: 'Network error',
+//       message: 'Erro de conexão. Tente novamente.',
+//     };
+//   }
+// }
+
+// Query Keys para auth
+export const AUTH_QUERY_KEYS = {
+  session: ['auth', 'session'] as const,
+  profile: ['auth', 'profile'] as const,
+} as const;
 
 // Auth provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  // Initialize user from localStorage (SSR-safe)
+  // Initialize user session using TanStack Query
+  const { data: sessionData, isLoading: sessionLoading } = useQuery({
+    queryKey: AUTH_QUERY_KEYS.session,
+    queryFn: () =>
+      apiCall<{ user: User; authenticated: boolean }>('/api/auth/session'),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
+  });
+
+  // Update state based on session data
   useEffect(() => {
-    const initializeUser = async () => {
+    if (sessionLoading) {
       dispatch({ type: 'SET_LOADING', payload: true });
-      try {
-        const token = getAuthToken();
-        const savedUser = safeLocalStorage.getItem('shopify-user');
+      return;
+    }
 
-        if (token && savedUser) {
-          const userJson = JSON.parse(savedUser);
+    if (sessionData?.success && sessionData?.data?.authenticated) {
+      const user = sessionData.data.user;
+      safeLocalStorage.setJSON('shopify-user', user);
+      dispatch({ type: 'SET_USER', payload: user });
+    } else {
+      safeLocalStorage.removeItem('shopify-user');
+      dispatch({ type: 'LOGOUT' });
+    }
+  }, [sessionData, sessionLoading]);
 
-          // Validate with Shopify (if real user)
-          if (token !== 'registered-user-token') {
-            const customerResponse = await getCustomer(token);
-            if (customerResponse.success && customerResponse.data) {
-              const validatedUser = convertShopifyCustomerToUser(
-                customerResponse.data
-              );
-              // Update localStorage with fresh data
-              safeLocalStorage.setJSON('shopify-user', validatedUser);
-              dispatch({ type: 'SET_USER', payload: validatedUser });
-            } else {
-              // Token invalid, use saved user data
-              dispatch({ type: 'SET_USER', payload: userJson });
-            }
-          } else {
-            dispatch({ type: 'SET_USER', payload: userJson });
-          }
-        } else {
-          // No token means no authentication - clear any stored user data
-          if (savedUser) {
-            safeLocalStorage.removeItem('shopify-user');
-          }
-          dispatch({ type: 'LOGOUT' });
-        }
-      } catch (error) {
-        console.error('Error initializing user:', error);
-        dispatch({ type: 'SET_ERROR', payload: 'Erro ao inicializar usuário' });
-      } finally {
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
-    };
-
-    initializeUser();
-
-    // Listen for localStorage changes (like manual user removal between tabs)
+  // Listen for localStorage changes (like manual user removal between tabs)
+  useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'shopify-user' && event.newValue === null) {
-        // User was removed, logout user immediately
         dispatch({ type: 'LOGOUT' });
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Separate effect for periodic token validation
-  useEffect(() => {
-    const checkTokenValidity = () => {
-      const token = getAuthToken();
-      if (state.user && !token) {
-        // User is logged in but no token exists - force logout
-        safeLocalStorage.removeItem('shopify-user');
-        dispatch({ type: 'LOGOUT' });
-      }
-    };
-
-    const intervalId = setInterval(checkTokenValidity, 2000); // Check every 2 seconds
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [state.user]);
-
-  // Login function
-  const login = async (email: string, password: string) => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'CLEAR_ERROR' });
-
-    try {
-      // Call Shopify login API
-      const loginResponse = await loginCustomer({ email, password });
-
+  // Login mutation
+  const loginMutation = useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
+      apiCall<{ user: User; message: string }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    onMutate: () => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' });
+    },
+    onSuccess: (loginResponse) => {
       if (!loginResponse.success) {
-        dispatch({ type: 'SET_ERROR', payload: loginResponse.message });
-        toast.error(loginResponse.message || 'Erro ao fazer login');
-        return { success: false, message: loginResponse.message };
+        throw new Error(loginResponse.message || 'Erro ao fazer login');
       }
 
-      // Get customer data using the access token
-      const customerResponse = await getCustomer(
-        loginResponse.data.accessToken
-      );
-
-      if (!customerResponse.success || !customerResponse.data) {
-        const errorMessage =
-          customerResponse.message || 'Erro ao carregar dados do usuário';
-        dispatch({ type: 'SET_ERROR', payload: errorMessage });
-        toast.error(errorMessage);
-        return { success: false, message: errorMessage };
-      }
-
-      // Convert Shopify customer to User interface
-      const user = convertShopifyCustomerToUser(customerResponse.data);
-
-      // Save user to localStorage (with SSR safety)
+      const user = loginResponse.data!.user;
       safeLocalStorage.setJSON('shopify-user', user);
-
-      // Set cookie for both middleware and client access
-      const cookieSet = await setCookieAsync(
-        'shopify-auth-token',
-        loginResponse.data.accessToken
-      );
-
-      if (!cookieSet) {
-        console.warn('Cookie not set properly, using fallback');
-      }
-
       dispatch({ type: 'SET_USER', payload: user });
       toast.success('Login realizado com sucesso!');
 
-      // Handle post-login redirect with proper cookie synchronization
+      // Invalidate session query to refetch
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.session });
+
+      // Handle post-login redirect
       const redirectPath = sessionStorage.getItem('post-login-redirect');
-
-      // Small delay to ensure cookie is available for middleware
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       if (redirectPath) {
         sessionStorage.removeItem('post-login-redirect');
-
-        // For protected routes, use window.location to ensure fresh middleware check
-        const protectedRoutes = ['/account', '/wishlist', '/checkout'];
-        const isProtectedRoute = protectedRoutes.some((route) =>
-          redirectPath.startsWith(route)
-        );
-
-        if (isProtectedRoute) {
-          // Force full page reload to ensure middleware processes new cookie
-          window.location.href = redirectPath;
-        } else {
-          // Use router for non-protected routes
-          router.push(redirectPath);
-        }
+        router.push(redirectPath);
       } else {
-        // If no specific redirect, redirect to account page after successful login
-        window.location.href = '/account';
+        router.push('/account');
       }
-
-      return { success: true, data: user };
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       const errorMessage = error.message || 'Erro inesperado ao fazer login';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    }
-  };
+    },
+    onSettled: () => {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    },
+  });
 
-  // Register function
-  const register = async (userData: RegisterData) => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'CLEAR_ERROR' });
-
-    try {
-      // Create customer using Shopify API
-      const registerResponse = await createCustomer({
-        email: userData.email,
-        password: userData.password,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        phone: userData.phone,
-        acceptsMarketing: userData.acceptsMarketing,
-      });
-
-      if (!registerResponse.success) {
-        dispatch({ type: 'SET_ERROR', payload: registerResponse.message });
-        toast.error(registerResponse.message || 'Erro ao criar conta');
-        return { success: false, message: registerResponse.message };
+  const login = useCallback(
+    async (email: string, password: string) => {
+      try {
+        await loginMutation.mutateAsync({ email, password });
+        return { success: true, data: state.user || undefined };
+      } catch (e: any) {
+        return { success: false, message: e.message };
       }
+    },
+    [loginMutation, state.user]
+  );
+  // Login function wrapper
 
-      toast.success('Account created successfully!');
-
-      return {
-        success: true,
-        message: 'Account created successfully!',
-        data: registerResponse.data,
-      };
-    } catch (error: any) {
+  // Register mutation
+  const registerMutation = useMutation({
+    mutationFn: (userData: RegisterData) =>
+      apiCall<{ message: string; customer: any }>('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      }),
+    onMutate: () => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' });
+    },
+    onSuccess: (registerResponse) => {
+      if (!registerResponse.success) {
+        throw new Error(registerResponse.message || 'Erro ao criar conta');
+      }
+      toast.success(registerResponse.data!.message);
+    },
+    onError: (error: any) => {
       const errorMessage = error.message || 'Erro inesperado ao criar conta';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    }
-  };
+    },
+    onSettled: () => {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    },
+  });
 
-  // Logout function
-  const logout = async () => {
-    const token = getAuthToken();
-
-    // If there's a valid token, call Shopify logout API
-    if (token && token !== 'registered-user-token') {
-      const logoutResponse = await logoutCustomer(token);
-      if (!logoutResponse.success) {
-        console.warn('Logout API call failed:', logoutResponse.message);
+  // Register function wrapper
+  const register = useCallback(
+    async (userData: RegisterData) => {
+      try {
+        const result = await registerMutation.mutateAsync(userData);
+        return {
+          success: true,
+          message: result.data!.message,
+          data: result.data!.customer,
+        };
+      } catch (error: any) {
+        return { success: false, message: error.message };
       }
-    }
+    },
+    [registerMutation]
+  );
 
-    // Always clear local storage and user state
-    safeLocalStorage.removeItem('shopify-user');
+  // Logout mutation
+  const logoutMutation = useMutation({
+    mutationFn: () => apiCall('/api/auth/logout', { method: 'POST' }),
+    onSuccess: () => {
+      // Clear all queries
+      queryClient.clear();
+    },
+    onError: (error) => {
+      console.warn('Logout API call failed:', error);
+    },
+    onSettled: () => {
+      // Always clear local state regardless of API call result
+      safeLocalStorage.removeItem('shopify-user');
+      dispatch({ type: 'LOGOUT' });
+      router.push('/');
+    },
+  });
 
-    // Clear cookie (our single source of truth for token)
-    removeCookie('shopify-auth-token');
+  // Logout function wrapper
+  const logout = useCallback(async () => {
+    logoutMutation.mutate();
+  }, [logoutMutation]);
 
-    dispatch({ type: 'LOGOUT' });
-    router.push('/');
-  };
-
-  // Update user function
-  const updateUser = async (userData: Partial<User>) => {
-    if (!state.user) {
-      dispatch({ type: 'SET_ERROR', payload: 'Usuário não logado' });
-      return;
-    }
-
-    dispatch({ type: 'SET_LOADING', payload: true });
-
-    const token = getAuthToken();
-
-    if (token && token !== 'registered-user-token') {
-      // Call Shopify's Customer Account API to update user data
-      const updateResponse = await updateCustomer(token, userData);
-
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: (userData: Partial<User>) =>
+      apiCall<{ user: User; message: string }>('/api/customer/update', {
+        method: 'PUT',
+        body: JSON.stringify(userData),
+      }),
+    onMutate: () => {
+      if (!state.user) {
+        throw new Error('Usuário não logado');
+      }
+      dispatch({ type: 'SET_LOADING', payload: true });
+    },
+    onSuccess: (updateResponse) => {
       if (!updateResponse.success) {
-        dispatch({ type: 'SET_ERROR', payload: updateResponse.message });
-        return;
+        throw new Error(updateResponse.message || 'Erro ao atualizar perfil');
       }
 
-      const updatedUser = convertShopifyCustomerToUser(updateResponse.data);
+      const updatedUser = updateResponse.data!.user;
       safeLocalStorage.setJSON('shopify-user', updatedUser);
       dispatch({ type: 'SET_USER', payload: updatedUser });
-    } else {
-      // For demo users, update locally
-      const updatedUser = { ...state.user, ...userData };
-      safeLocalStorage.setJSON('shopify-user', updatedUser);
-      dispatch({ type: 'SET_USER', payload: updatedUser });
-    }
-  };
+      toast.success('Perfil atualizado com sucesso!');
 
-  // Refresh user data
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.session });
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.profile });
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || 'Erro ao atualizar perfil';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    },
+    onSettled: () => {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    },
+  });
+
+  // Update user function wrapper
+  const updateUser = useCallback(
+    async (userData: Partial<User>) => {
+      updateUserMutation.mutate(userData);
+    },
+    [updateUserMutation]
+  );
+
+  // Refresh user function using query invalidation
   const refreshUser = async () => {
     if (!state.user) return;
 
-    dispatch({ type: 'SET_LOADING', payload: true });
-
-    const token = getAuthToken();
-
-    if (token && token !== 'registered-user-token') {
-      // Fetch fresh data from Shopify
-      const customerResponse = await getCustomer(token);
-
-      if (customerResponse.success && customerResponse.data) {
-        const user = convertShopifyCustomerToUser(customerResponse.data);
-        safeLocalStorage.setJSON('shopify-user', user);
-        dispatch({ type: 'SET_USER', payload: user });
-      } else {
-        dispatch({ type: 'SET_ERROR', payload: customerResponse.message });
-      }
-    } else {
-      // Refresh from localStorage for demo users
-      const savedUser = safeLocalStorage.getItem('shopify-user');
-      if (savedUser) {
-        const user = JSON.parse(savedUser);
-        dispatch({ type: 'SET_USER', payload: user });
-      }
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
+    // Invalidate and refetch profile data
+    await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.profile });
+    await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.session });
   };
 
-  // Recover password function
+  // Recover password mutation
+  const recoverPasswordMutation = useMutation({
+    mutationFn: (email: string) =>
+      apiCall<{ message: string }>('/api/auth/recover-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+    onMutate: () => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' });
+    },
+    onSuccess: (result) => {
+      if (!result.success) {
+        throw new Error(
+          result.message || 'Erro ao enviar email de recuperação'
+        );
+      }
+      toast.success(
+        result.data?.message || 'Email de recuperação enviado com sucesso'
+      );
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.message || 'Erro ao enviar email de recuperação';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      toast.error(errorMessage);
+    },
+    onSettled: () => {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    },
+  });
+
+  // Recover password function wrapper
   const recoverPassword = async (
     email: string
   ): Promise<{ success: boolean; message?: string }> => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'CLEAR_ERROR' });
-
     try {
-      const response = await recoverCustomerPassword(email);
-
-      if (response.success) {
-        toast.success(
-          response.message || 'Password recovery email sent successfully'
-        );
-        return { success: true, message: response.message };
-      } else {
-        dispatch({ type: 'SET_ERROR', payload: response.message });
-        toast.error(
-          response.message || 'Error sending password recovery email'
-        );
-        return { success: false, message: response.message };
-      }
-    } catch (error) {
-      const errorMessage = 'Error sending password recovery email';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      const result = await recoverPasswordMutation.mutateAsync(email);
+      return { success: true, message: result.data?.message };
+    } catch (error: any) {
+      return { success: false, message: error.message };
     }
   };
 
@@ -435,11 +401,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const value: AuthContextType = {
-    user: state.user,
-    isAuthenticated: state.isAuthenticated,
-    isLoading: state.isLoading,
-    error: state.error,
+  const value: AuthContextType = useMemo(() => {
+    return {
+      user: state.user,
+      isAuthenticated: state.isAuthenticated,
+      isLoading: state.isLoading || sessionLoading,
+      error: state.error,
+      login,
+      register,
+      logout,
+      updateUser,
+      refreshUser,
+      recoverPassword,
+      setUser,
+      setIsAuthenticated,
+    };
+  }, [
+    state,
+    sessionLoading,
     login,
     register,
     logout,
@@ -448,7 +427,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     recoverPassword,
     setUser,
     setIsAuthenticated,
-  };
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

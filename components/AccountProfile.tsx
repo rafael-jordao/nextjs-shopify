@@ -10,6 +10,7 @@ import { Input } from './ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import AccountAddresses from './AccountAddresses';
 import type { User } from '@/types/shopify';
+import { formatPhoneForShopify } from '@/utils/helpers';
 
 // Profile edit schema
 const profileEditSchema = z.object({
@@ -34,29 +35,6 @@ const profileEditSchema = z.object({
 });
 
 type ProfileEditFormData = z.infer<typeof profileEditSchema>;
-
-// Function to format international phone number
-const formatPhoneForShopify = (
-  phone: string | undefined
-): string | undefined => {
-  if (!phone || phone.trim() === '') return undefined;
-
-  // Remove all non-numeric characters
-  const cleanPhone = phone.replace(/\D/g, '');
-
-  // If phone already starts with +, keep it as is (already formatted)
-  if (phone.startsWith('+')) {
-    return phone.replace(/[^+\d]/g, ''); // Keep only + and digits
-  }
-
-  // If phone doesn't start with + and has valid length, add + prefix
-  if (cleanPhone.length >= 7 && cleanPhone.length <= 15) {
-    return `+${cleanPhone}`;
-  }
-
-  // Return the cleaned phone number as fallback
-  return cleanPhone || undefined;
-};
 
 interface AccountProfileProps {
   user: User;
@@ -294,7 +272,7 @@ export default function AccountProfile({ user }: AccountProfileProps) {
 
       {/* Seção de Endereços */}
       <div className="mt-8 px-6 pb-6">
-        <AccountAddresses user={user} />
+        <AccountAddresses />
       </div>
     </div>
   );
