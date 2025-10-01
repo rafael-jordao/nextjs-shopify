@@ -8,7 +8,7 @@ import { formatOrderStatus, getOrderStatusColor } from '@/utils/helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomerOrders, type ShopifyOrder } from '@/hooks/useOrders';
 import LoadingSpinner from './LoadingSpinner';
-import EmptyState from './EmptyState';
+import Image from 'next/image';
 
 export default function OrderHistory() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -188,7 +188,9 @@ export default function OrderHistory() {
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center overflow-hidden">
                           {edge.node.variant?.image?.url ? (
-                            <img
+                            <Image
+                              width={48}
+                              height={48}
                               src={edge.node.variant.image.url}
                               alt={
                                 edge.node.variant.image.altText ||

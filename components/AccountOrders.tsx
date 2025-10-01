@@ -7,6 +7,7 @@ import { useCustomerOrders } from '@/hooks/useOrders';
 import LoadingSpinner from './LoadingSpinner';
 import EmptyState from './EmptyState';
 import type { ShopifyOrder, User } from '@/types/shopify';
+import Image from 'next/image';
 
 interface AccountOrdersProps {
   user: User;
@@ -130,7 +131,9 @@ export default function AccountOrders({ user }: AccountOrdersProps) {
                 >
                   <div className="w-16 h-16 bg-gray-200 rounded-md flex items-center justify-center overflow-hidden">
                     {edge.node.variant?.image?.url ? (
-                      <img
+                      <Image
+                        width={64}
+                        height={64}
                         src={edge.node.variant.image.url}
                         alt={edge.node.variant.image.altText || edge.node.title}
                         className="w-full h-full object-cover"

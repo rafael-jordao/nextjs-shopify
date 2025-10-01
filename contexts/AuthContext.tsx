@@ -28,6 +28,7 @@ import { apiCall } from '@/utils/helpers';
 
 // Auth actions
 type AuthAction =
+  | { type: 'AUTH_RESOLVED'; payload: { user: User | null } } // 👈 novo
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_USER'; payload: User }
   | { type: 'SET_ERROR'; payload: string }
@@ -37,6 +38,15 @@ type AuthAction =
 // Auth reducer
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
+    case 'AUTH_RESOLVED': {
+      const user = action.payload.user;
+      return {
+        user,
+        isAuthenticated: !!user,
+        isLoading: false,
+        error: null,
+      };
+    }
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     case 'SET_USER':
@@ -71,51 +81,12 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true, // 👈 começa carregando
   error: null,
 };
 
 // Create context with default values to prevent SSR issues
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// API helper functions
-// async function apiCall<T>(
-//   url: string,
-//   options: RequestInit = {}
-// ): Promise<{ success: boolean; data?: T; message?: string; error?: string }> {
-//   try {
-//     const response = await fetch(url, {
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...options.headers,
-//       },
-//       ...options,
-//     });
-
-//     const result = await response.json();
-
-//     if (!response.ok) {
-//       return {
-//         success: false,
-//         error: result.error || result.message || 'Request failed',
-//         message: result.error || result.message || 'Request failed',
-//       };
-//     }
-
-//     return {
-//       success: true,
-//       data: result.data,
-//       message: result.message,
-//     };
-//   } catch (error) {
-//     console.error('API call error:', error);
-//     return {
-//       success: false,
-//       error: 'Network error',
-//       message: 'Erro de conexão. Tente novamente.',
-//     };
-//   }
-// }
 
 // Query Keys para auth
 export const AUTH_QUERY_KEYS = {
@@ -140,21 +111,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     gcTime: 1000 * 60 * 10, // 10 minutes
   });
 
-  // Update state based on session data
+  // 🔒 Resolução ATÔMICA da sessão (AUTH_RESOLVED)
   useEffect(() => {
-    if (sessionLoading) {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      return;
-    }
+    if (sessionLoading) return;
 
-    if (sessionData?.success && sessionData?.data?.authenticated) {
-      const user = sessionData.data.user;
+    const user =
+      sessionData?.success && sessionData?.data?.authenticated
+        ? sessionData.data.user
+        : null;
+
+    if (user) {
       safeLocalStorage.setJSON('shopify-user', user);
-      dispatch({ type: 'SET_USER', payload: user });
     } else {
       safeLocalStorage.removeItem('shopify-user');
-      dispatch({ type: 'LOGOUT' });
     }
+
+    dispatch({ type: 'AUTH_RESOLVED', payload: { user } });
   }, [sessionData, sessionLoading]);
 
   // Listen for localStorage changes (like manual user removal between tabs)
@@ -223,7 +195,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [loginMutation, state.user]
   );
-  // Login function wrapper
 
   // Register mutation
   const registerMutation = useMutation({
@@ -252,7 +223,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Register function wrapper
   const register = useCallback(
     async (userData: RegisterData) => {
       try {
@@ -287,7 +257,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Logout function wrapper
   const logout = useCallback(async () => {
     logoutMutation.mutate();
   }, [logoutMutation]);
@@ -328,7 +297,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Update user function wrapper
   const updateUser = useCallback(
     async (userData: Partial<User>) => {
       updateUserMutation.mutate(userData);
@@ -337,13 +305,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Refresh user function using query invalidation
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (!state.user) return;
 
     // Invalidate and refetch profile data
     await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.profile });
     await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.session });
-  };
+  }, [state.user, queryClient]);
 
   // Recover password mutation
   const recoverPasswordMutation = useMutation({
@@ -377,19 +345,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Recover password function wrapper
-  const recoverPassword = async (
-    email: string
-  ): Promise<{ success: boolean; message?: string }> => {
-    try {
-      const result = await recoverPasswordMutation.mutateAsync(email);
-      return { success: true, message: result.data?.message };
-    } catch (error: any) {
-      return { success: false, message: error.message };
-    }
-  };
+  const recoverPassword = useCallback(
+    async (email: string): Promise<{ success: boolean; message?: string }> => {
+      try {
+        const result = await recoverPasswordMutation.mutateAsync(email);
+        return { success: true, message: result.data?.message };
+      } catch (error: any) {
+        return { success: false, message: error.message };
+      }
+    },
+    [recoverPasswordMutation]
+  );
 
-  // Utility functions for manual state updates (used by activation process)
+  // ✅ isLoading derivado de Query/Mutations (sem piscada)
+  const isBusy =
+    sessionLoading ||
+    loginMutation.isPending ||
+    registerMutation.isPending ||
+    updateUserMutation.isPending ||
+    recoverPasswordMutation.isPending ||
+    logoutMutation.isPending;
+
+  // Utility functions for manual state updates (usados na ativação)
   const setUser = (user: User) => {
     dispatch({ type: 'SET_USER', payload: user });
     safeLocalStorage.setItem('shopify-user', JSON.stringify(user));
@@ -405,7 +382,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       user: state.user,
       isAuthenticated: state.isAuthenticated,
-      isLoading: state.isLoading || sessionLoading,
+      isLoading: isBusy, // 👈 agora deriva dos estados do Query/Mutations
       error: state.error,
       login,
       register,
@@ -417,16 +394,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated,
     };
   }, [
-    state,
-    sessionLoading,
+    state.user,
+    state.isAuthenticated,
+    state.error,
+    isBusy,
     login,
     register,
     logout,
     updateUser,
     refreshUser,
     recoverPassword,
-    setUser,
-    setIsAuthenticated,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

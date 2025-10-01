@@ -34,11 +34,11 @@ export default function AuthRedirectHandler() {
   }, [searchParams, isAuthenticated, isLoading]);
 
   // Close modal when user becomes authenticated
-  // useEffect(() => {
-  //   if (isAuthenticated && showAuthModal) {
-  //     setShowAuthModal(false);
-  //   }
-  // }, [isAuthenticated, showAuthModal]);
+  useEffect(() => {
+    if (isAuthenticated && showAuthModal) {
+      setShowAuthModal(false);
+    }
+  }, [isAuthenticated, showAuthModal]);
 
   return (
     <>

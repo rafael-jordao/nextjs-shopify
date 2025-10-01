@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Image from 'next/image';
 
 // Zod validation schema
 const checkoutSchema = z.object({
@@ -474,7 +475,9 @@ export default function CheckoutForm() {
               <div key={item.id} className="flex items-center space-x-4">
                 <div className="relative">
                   {item.image ? (
-                    <img
+                    <Image
+                      width={64}
+                      height={64}
                       src={item.image.url}
                       alt={item.image.altText || item.title}
                       className="w-16 h-16 object-cover rounded border-2 border-gray-200"
