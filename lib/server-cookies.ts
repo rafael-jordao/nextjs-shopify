@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * Server-side cookie utilities for secure session management
  * These functions work with Next.js server components and API routes
