@@ -125,12 +125,9 @@ Create a `.env.local` file:
 
 ```bash
 # Shopify Configuration
-SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
-SHOPIFY_STOREFRONT_ACCESS_TOKEN=your-storefront-access-token
-
-# Security
-NEXTAUTH_SECRET=your-secret-key
-NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_SHOPIFY_DOMAIN=your-store.myshopify.com
+NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN=your-storefront-access-token
+NEXT_PUBLIC_STORE_URL=https://your-store.myshopify.com
 
 # Optional: Analytics, etc.
 ```

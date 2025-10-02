@@ -61,8 +61,6 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     ];
   }
 
-  console.log('Selected Variant:', selectedVariant.image);
-
   const handleAddToCart = async () => {
     if (selectedVariant && selectedVariant.availableForSale) {
       try {

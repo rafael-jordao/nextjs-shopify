@@ -263,7 +263,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Always clear local state regardless of API call result
       safeLocalStorage.removeItem('shopify-user');
       dispatch({ type: 'LOGOUT' });
-      router.push('/');
+      router.replace('/');
+      router.refresh();
     },
   });
 

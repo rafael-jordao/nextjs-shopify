@@ -53,11 +53,11 @@ export default function Model3DViewer({
     const loadModelViewer = async () => {
       try {
         if (typeof window !== 'undefined' && modelViewerRef.current && source) {
-          console.log('Loading 3D model:', source.url);
+          // console.log('Loading 3D model:', source.url);
 
           // Dynamically import model-viewer
           await import('@google/model-viewer');
-          console.log('Model-viewer library loaded successfully');
+          // console.log('Model-viewer library loaded successfully');
 
           // Clear any existing content
           if (modelViewerRef.current) {

@@ -45,22 +45,22 @@ export default function MediaViewer({
   const selectedMedia = media[selectedMediaIndex];
 
   const renderMedia = (mediaItem: ShopifyMedia) => {
-    console.log('Renderizando mídia:', {
-      id: mediaItem.id,
-      type: mediaItem.mediaContentType,
-      fullData: mediaItem,
-      hasSubObject: {
-        model3d: !!mediaItem.model3d,
-        video: !!mediaItem.video,
-        externalVideo: !!mediaItem.externalVideo,
-        image: !!mediaItem.image,
-      },
-      hasDirectFields: {
-        sources: !!mediaItem.sources,
-        host: !!mediaItem.host,
-        originUrl: !!mediaItem.originUrl,
-      },
-    });
+    // console.log('Renderizando mídia:', {
+    //   id: mediaItem.id,
+    //   type: mediaItem.mediaContentType,
+    //   fullData: mediaItem,
+    //   hasSubObject: {
+    //     model3d: !!mediaItem.model3d,
+    //     video: !!mediaItem.video,
+    //     externalVideo: !!mediaItem.externalVideo,
+    //     image: !!mediaItem.image,
+    //   },
+    //   hasDirectFields: {
+    //     sources: !!mediaItem.sources,
+    //     host: !!mediaItem.host,
+    //     originUrl: !!mediaItem.originUrl,
+    //   },
+    // });
 
     switch (mediaItem.mediaContentType) {
       case 'IMAGE':
