@@ -66,7 +66,7 @@ export function clearCustomerTokenCookie(response: NextResponse): NextResponse {
     maxAge: 0,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
   });
 

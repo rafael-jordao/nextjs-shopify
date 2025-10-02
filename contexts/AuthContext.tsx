@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
     },
-    onSuccess: (loginResponse) => {
+    onSuccess: async (loginResponse) => {
       if (!loginResponse.success) {
         throw new Error(loginResponse.message || 'Erro ao fazer login');
       }
@@ -162,17 +162,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'SET_USER', payload: user });
       toast.success('Login realizado com sucesso!');
 
-      // Invalidate session query to refetch
-      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.session });
+      // Opcional: invalida a sessão para quem ainda ficar na mesma página antes do reload
+      await queryClient.invalidateQueries({
+        queryKey: AUTH_QUERY_KEYS.session,
+      });
 
-      // Handle post-login redirect
-      const redirectPath = sessionStorage.getItem('post-login-redirect');
-      if (redirectPath) {
-        sessionStorage.removeItem('post-login-redirect');
-        router.push(redirectPath);
-      } else {
-        router.push('/account');
+      // --- Redirect pós-login: sempre FULL RELOAD para estabilizar toda a app ---
+      const stored = sessionStorage.getItem('post-login-redirect');
+      if (stored) sessionStorage.removeItem('post-login-redirect');
+
+      // normaliza o destino
+      const raw = stored ?? '/account';
+      let target = '/account';
+      try {
+        const decoded = decodeURIComponent(raw);
+        target = decoded.startsWith('/') ? decoded : `/${decoded}`;
+      } catch {
+        target = raw.startsWith('/') ? raw : `/${raw}`;
       }
+
+      // Full reload SEM adicionar entrada no histórico (evita voltar pro estado pré-login)
+      window.location.replace(target);
     },
     onError: (error: any) => {
       const errorMessage = error.message || 'Erro inesperado ao fazer login';
