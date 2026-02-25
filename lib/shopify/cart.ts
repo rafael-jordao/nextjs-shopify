@@ -43,7 +43,7 @@ export async function createCart(): Promise<ShopifyResponse<ShopifyCart>> {
 // Add items to cart
 export async function addToCart(
   cartId: string,
-  lines: Array<{ merchandiseId: string; quantity: number }>
+  lines: Array<{ merchandiseId: string; quantity: number }>,
 ): Promise<ShopifyResponse<ShopifyCart>> {
   try {
     const data = await shopifyFetch<{
@@ -79,7 +79,7 @@ export async function addToCart(
 // Update cart line item quantity
 export async function updateCartLine(
   cartId: string,
-  lines: Array<{ id: string; quantity: number }>
+  lines: Array<{ id: string; quantity: number }>,
 ): Promise<ShopifyResponse<ShopifyCart>> {
   try {
     const data = await shopifyFetch<{
@@ -115,7 +115,7 @@ export async function updateCartLine(
 // Remove items from cart
 export async function removeFromCart(
   cartId: string,
-  lineIds: string[]
+  lineIds: string[],
 ): Promise<ShopifyResponse<ShopifyCart>> {
   try {
     const data = await shopifyFetch<{
@@ -150,7 +150,7 @@ export async function removeFromCart(
 
 // Get cart by ID
 export async function getCart(
-  cartId: string
+  cartId: string,
 ): Promise<ShopifyResponse<ShopifyCart | null>> {
   try {
     const data = await shopifyFetch<{ cart: ShopifyCart | null }>(
@@ -159,7 +159,7 @@ export async function getCart(
       {
         cache: 'no-store', // Never cache cart data as it's user-specific
         next: { revalidate: false },
-      }
+      },
     );
 
     return {

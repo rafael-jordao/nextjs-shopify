@@ -16,6 +16,7 @@ export const CREATE_CART = `
                 ... on ProductVariant {
                   id
                   title
+                  quantityAvailable
                   price {
                     amount
                     currencyCode
@@ -103,6 +104,7 @@ export const ADD_TO_CART = `
                 ... on ProductVariant {
                   id
                   title
+                  quantityAvailable
                   price {
                     amount
                     currencyCode
@@ -158,6 +160,7 @@ export const UPDATE_CART = `
                 ... on ProductVariant {
                   id
                   title
+                  quantityAvailable
                   price {
                     amount
                     currencyCode
@@ -209,6 +212,7 @@ export const REMOVE_FROM_CART = `
                 ... on ProductVariant {
                   id
                   title
+                  quantityAvailable
                   price {
                     amount
                     currencyCode
@@ -261,6 +265,7 @@ export const GET_CART = `
               ... on ProductVariant {
                 id
                 title
+                quantityAvailable
                 price {
                   amount
                   currencyCode

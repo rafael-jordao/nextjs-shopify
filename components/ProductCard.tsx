@@ -24,23 +24,45 @@ export default function ProductCard({
   product,
   className = '',
 }: ProductCardProps) {
-  const { addToCart } = useCart();
+  const { addToCart, getVariantQuantityInCart } = useCart();
   const image = getProductImage(product);
   const variant = getProductVariant(product);
+
+  const quantityInCart = getVariantQuantityInCart(variant?.id || '');
+  const availableStock = variant?.quantityAvailable;
+
+  // Se quantityAvailable não estiver definido, não limitamos por estoque
+  const hasStockInfo = typeof availableStock === 'number';
+  const remainingStock = hasStockInfo
+    ? Math.max(0, availableStock - quantityInCart)
+    : Infinity; // Sem limite se não temos info de estoque
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (variant && variant.availableForSale) {
-      try {
-        await addToCart(variant.id);
-        toast.success(`${product.title} added to cart!`);
-      } catch (error) {
-        toast.error('Error adding product to cart');
-      }
-    } else {
+    if (!variant || !variant.availableForSale) {
       toast.error('Product unavailable');
+      return;
+    }
+
+    // Só valida estoque se temos a informação
+    if (hasStockInfo && remainingStock === 0) {
+      if (quantityInCart > 0) {
+        toast.error(
+          `Maximum stock reached. You have ${quantityInCart} in cart.`,
+        );
+      } else {
+        toast.error('Out of stock');
+      }
+      return;
+    }
+
+    try {
+      await addToCart(variant.id);
+      toast.success(`${product.title} added to cart!`);
+    } catch (error) {
+      toast.error('Error adding product to cart');
     }
   };
 
@@ -110,11 +132,24 @@ export default function ProductCard({
 
           <Button
             onClick={handleAddToCart}
-            disabled={!variant?.availableForSale}
+            disabled={
+              !variant?.availableForSale ||
+              (hasStockInfo && remainingStock === 0)
+            }
             size="sm"
-            variant={variant?.availableForSale ? 'default' : 'secondary'}
+            variant={
+              variant?.availableForSale && (!hasStockInfo || remainingStock > 0)
+                ? 'default'
+                : 'secondary'
+            }
           >
-            {variant?.availableForSale ? 'Add to Cart' : 'Sold Out'}
+            {hasStockInfo && remainingStock === 0
+              ? quantityInCart > 0
+                ? 'In Cart'
+                : 'Sold Out'
+              : variant?.availableForSale
+                ? 'Add to Cart'
+                : 'Sold Out'}
           </Button>
         </div>
       </CardContent>

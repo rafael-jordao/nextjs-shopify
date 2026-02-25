@@ -122,6 +122,7 @@ export interface ShopifyCartLine {
   merchandise: {
     id: string;
     title: string;
+    quantityAvailable?: number;
     price: ShopifyMoney;
     product: {
       title: string;
@@ -164,6 +165,7 @@ export interface CartItem {
   quantity: number;
   price: ShopifyMoney;
   image?: ShopifyImage;
+  quantityAvailable?: number;
 }
 
 // Cart context interface
@@ -176,6 +178,7 @@ export interface CartContextType {
   updateCartItem: (lineId: string, quantity: number) => Promise<void>;
   getTotalItems: () => number;
   getTotalPrice: () => string;
+  getVariantQuantityInCart: (variantId: string) => number;
   clearCart: () => void;
 }
 
@@ -325,16 +328,16 @@ export interface AuthContextType {
 
   login: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<{ success: boolean; message?: string; data?: User }>;
   register: (
-    userData: RegisterData
+    userData: RegisterData,
   ) => Promise<{ success: boolean; message?: string; data?: User }>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
   recoverPassword: (
-    email: string
+    email: string,
   ) => Promise<{ success: boolean; message?: string }>;
   setUser: (user: User) => void;
   setIsAuthenticated: (isAuthenticated: boolean) => void;
