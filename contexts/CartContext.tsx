@@ -75,21 +75,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (!cartId) return null;
 
       const response = await getCart(cartId);
-      if (!response.success) {
-        // Cart not found, clear localStorage
+      if (!response.success || !response.data) {
+        // Cart not found or error, clear localStorage
         safeLocalStorage.removeItem('shopify-cart-id');
-        throw new Error(response.message);
+        return null;
       }
       return response.data;
     },
     enabled: !!getCartId(),
     staleTime: 0, // Carrinho sempre fresh
     gcTime: 5 * 60 * 1000, // 5 minutos
-    retry: (failureCount, error: any) => {
-      // Não retry se carrinho não existe (404)
-      if (error?.message?.includes('not found')) return false;
-      return failureCount < 2;
-    },
+    retry: false, // Don't retry if cart doesn't exist
   });
 
   // Sync TanStack Query data with local state
@@ -109,6 +105,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (data.success && data.data) {
         safeLocalStorage.setItem('shopify-cart-id', data.data.id);
         queryClient.setQueryData(CART_QUERY_KEYS.cart(data.data.id), data.data);
+        // Update local state immediately
+        dispatch({ type: 'SET_CART', payload: data.data });
       }
     },
   });
@@ -125,8 +123,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (data.success && data.data) {
         queryClient.setQueryData(
           CART_QUERY_KEYS.cart(variables.cartId),
-          data.data
+          data.data,
         );
+        dispatch({ type: 'SET_CART', payload: data.data });
         queryClient.invalidateQueries({
           queryKey: CART_QUERY_KEYS.cart(variables.cartId),
         });
@@ -149,12 +148,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Add item to cart
-      await addToCartMutation.mutateAsync({
+      const addResult = await addToCartMutation.mutateAsync({
         cartId,
         items: [{ merchandiseId: variantId, quantity }],
       });
+
+      // Check if cart doesn't exist (expired or invalid)
+      if (!addResult.success && addResult.message?.includes('does not exist')) {
+        // Clear old cart ID
+        safeLocalStorage.removeItem('shopify-cart-id');
+        dispatch({ type: 'CLEAR_CART' });
+
+        // Create new cart
+        const createResult = await createCartMutation.mutateAsync();
+        if (!createResult.success || !createResult.data) {
+          throw new Error(createResult.message);
+        }
+        cartId = createResult.data.id;
+
+        // Retry adding to cart
+        const retryResult = await addToCartMutation.mutateAsync({
+          cartId,
+          items: [{ merchandiseId: variantId, quantity }],
+        });
+
+        if (!retryResult.success) {
+          throw new Error(retryResult.message);
+        }
+      } else if (!addResult.success) {
+        throw new Error(addResult.message);
+      }
     } catch (error: any) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
     }
   };
 
@@ -165,8 +191,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (data.success && data.data) {
         queryClient.setQueryData(
           CART_QUERY_KEYS.cart(variables.cartId),
-          data.data
+          data.data,
         );
+        // Update local state immediately
+        dispatch({ type: 'SET_CART', payload: data.data });
         queryClient.invalidateQueries({
           queryKey: CART_QUERY_KEYS.cart(variables.cartId),
         });
@@ -186,8 +214,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (data.success && data.data) {
         queryClient.setQueryData(
           CART_QUERY_KEYS.cart(variables.cartId),
-          data.data
+          data.data,
         );
+        // Update local state immediately
+        dispatch({ type: 'SET_CART', payload: data.data });
         queryClient.invalidateQueries({
           queryKey: CART_QUERY_KEYS.cart(variables.cartId),
         });
@@ -227,8 +257,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!state.cart) return 0;
     return state.cart.lines.edges.reduce(
       (total, edge) => total + edge.node.quantity,
-      0
+      0,
     );
+  };
+
+  // Get quantity of specific variant in cart
+  const getVariantQuantityInCart = (variantId: string) => {
+    if (!state.cart) return 0;
+    const line = state.cart.lines.edges.find(
+      (edge) => edge.node.merchandise.id === variantId,
+    );
+    return line?.node.quantity || 0;
   };
 
   // Get total price
@@ -237,10 +276,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return state.cart.cost.totalAmount.amount;
   };
 
-  // Clear cart
+  // Clear cart (use after checkout completion)
   const clearCart = () => {
+    const cartId = getCartId();
+
+    // Remove from localStorage
     safeLocalStorage.removeItem('shopify-cart-id');
 
+    // Clear React Query cache
+    if (cartId) {
+      queryClient.removeQueries({
+        queryKey: CART_QUERY_KEYS.cart(cartId),
+      });
+    }
+
+    // Clear local state
     dispatch({ type: 'CLEAR_CART' });
   };
 
@@ -256,6 +306,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       quantity: edge.node.quantity,
       price: edge.node.merchandise.price,
       image: edge.node.merchandise.product.images.edges[0]?.node,
+      quantityAvailable: edge.node.merchandise.quantityAvailable,
     })) || [];
 
   // Combine loading states from TanStack Query mutations
@@ -275,6 +326,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     updateCartItem: handleUpdateCartItem,
     getTotalItems,
     getTotalPrice,
+    getVariantQuantityInCart,
     clearCart,
   };
 

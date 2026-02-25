@@ -102,111 +102,152 @@ export default function Cart({ children }: CartProps) {
               </div>
             ) : (
               <div className="space-y-6">
-                {cartItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start space-x-4 pb-6 border-b border-gray-100 last:border-b-0 last:pb-0"
-                  >
-                    {/* Product Image */}
-                    <div className="flex-shrink-0">
-                      {item.image ? (
-                        <div className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden">
-                          <Image
-                            src={item.image.url}
-                            alt={item.image.altText || item.title}
-                            fill
-                            className="object-cover"
-                            sizes="80px"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.5}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                {cartItems.map((item) => {
+                  // Get stock information
+                  const availableStock = item.quantityAvailable;
+                  const hasStockInfo = typeof availableStock === 'number';
+                  const canIncrement =
+                    !hasStockInfo || item.quantity < availableStock;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-start space-x-4 pb-6 border-b border-gray-100 last:border-b-0 last:pb-0"
+                    >
+                      {/* Product Image */}
+                      <div className="flex-shrink-0">
+                        {item.image ? (
+                          <div className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden">
+                            <Image
+                              src={item.image.url}
+                              alt={item.image.altText || item.title}
+                              fill
+                              className="object-cover"
+                              sizes="80px"
                             />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
+                          </div>
+                        ) : (
+                          <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <svg
+                              className="w-8 h-8 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Product Details */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 mb-1 line-clamp-2">
-                        {item.productTitle}
-                      </h3>
-                      {item.title !== 'Default Title' && (
-                        <p className="text-xs text-gray-500 mb-2">
-                          {item.title}
+                      {/* Product Details */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-gray-900 mb-1 line-clamp-2">
+                          {item.productTitle}
+                        </h3>
+                        {item.title !== 'Default Title' && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            {item.title}
+                          </p>
+                        )}
+                        <p className="text-base font-bold text-gray-900 mb-3">
+                          ${parseFloat(item.price.amount).toFixed(2)}
                         </p>
-                      )}
-                      <p className="text-base font-bold text-gray-900 mb-3">
-                        ${parseFloat(item.price.amount).toFixed(2)}
-                      </p>
 
-                      {/* Quantity Controls */}
-                      <div className="flex items-center space-x-3">
-                        <div className="flex items-center border border-gray-200 rounded-md">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity - 1)
-                            }
-                            className="h-8 w-8 p-0 rounded-r-none border-r hover:bg-gray-50"
-                            disabled={item.quantity <= 1}
-                          >
-                            -
-                          </Button>
-                          <span className="text-sm font-medium px-3 min-w-[3rem] text-center bg-gray-50">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity + 1)
-                            }
-                            className="h-8 w-8 p-0 rounded-l-none border-l hover:bg-gray-50"
-                          >
-                            +
-                          </Button>
+                        {/* Stock Info */}
+                        {hasStockInfo && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            {availableStock > 0 ? (
+                              <span>
+                                {availableStock} in stock
+                                {item.quantity >= availableStock && (
+                                  <span className="text-amber-600 ml-1">
+                                    (max)
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-red-600">Out of stock</span>
+                            )}
+                          </p>
+                        )}
+
+                        {/* Quantity Controls */}
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center border border-gray-200 rounded-md">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleUpdateQuantity(item.id, item.quantity - 1)
+                              }
+                              className="h-8 w-8 p-0 rounded-r-none border-r hover:bg-gray-50"
+                              disabled={item.quantity <= 1}
+                            >
+                              -
+                            </Button>
+                            <span className="text-sm font-medium px-3 min-w-[3rem] text-center bg-gray-50">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (!canIncrement) {
+                                  toast.error(
+                                    `Maximum stock reached (${availableStock} available)`,
+                                  );
+                                  return;
+                                }
+                                handleUpdateQuantity(
+                                  item.id,
+                                  item.quantity + 1,
+                                );
+                              }}
+                              className="h-8 w-8 p-0 rounded-l-none border-l hover:bg-gray-50"
+                              disabled={!canIncrement}
+                              title={
+                                !canIncrement
+                                  ? 'Maximum stock reached'
+                                  : 'Increase quantity'
+                              }
+                            >
+                              +
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Remove Button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full self-start mt-1"
-                      title="Remover item"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                      {/* Remove Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full self-start mt-1"
+                        title="Remover item"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </Button>
-                  </div>
-                ))}
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

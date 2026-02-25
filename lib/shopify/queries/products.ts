@@ -31,6 +31,7 @@ export const GET_PRODUCTS = `
                 id
                 title
                 availableForSale
+                quantityAvailable
                 image {
                   id
                   url
@@ -126,6 +127,7 @@ export const GET_PRODUCT = `
             id
             title
             availableForSale
+            quantityAvailable
             image {
               id
               url

@@ -138,7 +138,7 @@ export default function MediaViewer({
         if (externalVideoData.host && externalVideoData.originUrl) {
           const embedUrl = getEmbedUrl(
             externalVideoData.host,
-            externalVideoData.originUrl
+            externalVideoData.originUrl,
           );
 
           return (

@@ -23,11 +23,16 @@ interface ProductDetailsProps {
 }
 
 export default function ProductDetails({ product }: ProductDetailsProps) {
-  const { addToCart, isLoading } = useCart();
+  const { addToCart, isLoading, getVariantQuantityInCart } = useCart();
   const [selectedVariant, setSelectedVariant] = useState<ShopifyProductVariant>(
-    product.variants.edges[0]?.node
+    product.variants.edges[0]?.node,
   );
   const [quantity, setQuantity] = useState(1);
+
+  // Get quantity already in cart for this variant
+  const quantityInCart = getVariantQuantityInCart(selectedVariant?.id || '');
+  const availableStock = selectedVariant?.quantityAvailable || 0;
+  const remainingStock = Math.max(0, availableStock - quantityInCart);
 
   // Get media from product (includes images, videos, 3D models)
   const media = product.media?.edges?.map((edge) => edge.node) || [];
@@ -56,19 +61,38 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     displayMedia = [
       variantMedia,
       ...displayMedia.filter(
-        (m) => m.image?.url !== selectedVariant.image?.url
+        (m) => m.image?.url !== selectedVariant.image?.url,
       ),
     ];
   }
 
   const handleAddToCart = async () => {
-    if (selectedVariant && selectedVariant.availableForSale) {
-      try {
-        await addToCart(selectedVariant.id, quantity);
-        toast.success(`${product.title} added to cart!`);
-      } catch (error) {
-        toast.error('Error adding product to cart');
+    if (!selectedVariant || !selectedVariant.availableForSale) {
+      toast.error('Product unavailable');
+      return;
+    }
+
+    // Check if trying to add more than available
+    if (quantityInCart + quantity > availableStock) {
+      if (quantityInCart >= availableStock) {
+        toast.error(
+          `Maximum stock reached. You have ${quantityInCart} in cart.`,
+        );
+      } else {
+        toast.error(
+          `Only ${remainingStock} more available. You already have ${quantityInCart} in cart.`,
+        );
       }
+      return;
+    }
+
+    try {
+      await addToCart(selectedVariant.id, quantity);
+      toast.success(
+        `${product.title} added to cart! (${quantityInCart + quantity}/${availableStock})`,
+      );
+    } catch (error) {
+      toast.error('Error adding product to cart');
     }
   };
 
@@ -97,7 +121,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             </div>
             <p className="text-2xl font-semibold text-gray-900">
               {formatMoney(
-                selectedVariant?.price || product.priceRange.minVariantPrice
+                selectedVariant?.price || product.priceRange.minVariantPrice,
               )}
             </p>
           </div>
@@ -149,25 +173,23 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               className="block text-lg font-medium text-gray-900 mb-2"
             >
               Quantity
-              {selectedVariant?.quantityAvailable && (
+              {availableStock > 0 && (
                 <span className="text-sm text-gray-500 ml-2">
-                  ({selectedVariant.quantityAvailable} available)
+                  ({remainingStock} more available
+                  {quantityInCart > 0 && `, ${quantityInCart} in cart`})
                 </span>
               )}
             </label>
             <Select
               value={quantity.toString()}
               onValueChange={(value) => setQuantity(Number(value))}
+              disabled={remainingStock === 0}
             >
               <SelectTrigger className="w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[
-                  ...Array(
-                    Math.min(selectedVariant?.quantityAvailable || 10, 10)
-                  ),
-                ].map((_, i) => (
+                {[...Array(Math.min(remainingStock, 10))].map((_, i) => (
                   <SelectItem key={i + 1} value={(i + 1).toString()}>
                     {i + 1}
                   </SelectItem>
@@ -180,15 +202,23 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
           <div className="space-y-4">
             <Button
               onClick={handleAddToCart}
-              disabled={!selectedVariant?.availableForSale || isLoading}
+              disabled={
+                !selectedVariant?.availableForSale ||
+                isLoading ||
+                remainingStock === 0
+              }
               className="w-full py-6 text-lg font-medium"
               size="lg"
             >
               {isLoading
                 ? 'Adding to Cart...'
-                : selectedVariant?.availableForSale
-                ? 'Add to Cart'
-                : 'Unavailable'}
+                : remainingStock === 0
+                  ? quantityInCart > 0
+                    ? 'Maximum in Cart'
+                    : 'Out of Stock'
+                  : selectedVariant?.availableForSale
+                    ? 'Add to Cart'
+                    : 'Unavailable'}
             </Button>
 
             {/* Product Details */}
